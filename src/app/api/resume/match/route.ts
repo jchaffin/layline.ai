@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
           }
           
           // Check if dates are valid
-          if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+          if (!isNaN(startDate.getTime()) && endDate && !isNaN(endDate.getTime())) {
             const yearsDiff = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
             const yearsToAdd = Math.max(0, yearsDiff);
             totalYearsOfExperience += yearsToAdd;
