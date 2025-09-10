@@ -204,9 +204,22 @@ export default function StructuredResumePreview({ resumeData, title = "Resume Pr
                 {exp.description && (
                   <div className="text-sm text-gray-700 mt-2 w-full">
                     <p className="font-medium text-gray-800 mb-1">Description:</p>
-                    <p className="break-words leading-relaxed">
-                      {exp.description}
-                    </p>
+                    <div className="break-words leading-relaxed">
+                      {exp.description.split('\n').map((line, index) => {
+                        const trimmedLine = line.trim();
+                        if (trimmedLine.startsWith('- ')) {
+                          return (
+                            <div key={index} className="flex items-start mb-1">
+                              <span className="text-blue-600 mr-2 mt-1">•</span>
+                              <span>{trimmedLine.substring(2)}</span>
+                            </div>
+                          );
+                        }
+                        return trimmedLine ? (
+                          <p key={index} className="mb-1">{trimmedLine}</p>
+                        ) : null;
+                      })}
+                    </div>
                   </div>
                 )}
               </div>

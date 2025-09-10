@@ -25,6 +25,19 @@ import {
   Users,
   Award,
   CheckCircle,
+  Grid3X3,
+  List,
+  Filter,
+  SortAsc,
+  MoreVertical,
+  Star,
+  Download,
+  Share,
+  Archive,
+  Folder,
+  Settings,
+  Plus,
+  Menu,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -74,6 +87,12 @@ export default function JobSearch({ onJobSelect }: JobSearchProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [searchResults, setSearchResults] = useState<any>(null);
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [isExtractingLinkedin, setIsExtractingLinkedin] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [sortBy, setSortBy] = useState<'relevance' | 'date' | 'company' | 'salary'>('relevance');
+  const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
 
   // Auto-search on component mount with default values
   useEffect(() => {
@@ -106,11 +125,19 @@ export default function JobSearch({ onJobSelect }: JobSearchProps) {
       const response = await fetch(`/api/jobs/search?${params}`);
 
       if (!response.ok) {
-        throw new Error("Search failed");
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = (errorData && typeof errorData === 'object' && 'error' in errorData) 
+          ? errorData.error 
+          : `Search failed: ${response.status}`;
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
-      setJobs(data.jobs || []);
+      
+      // Ensure jobs is an array
+      const jobsArray = Array.isArray(data.jobs) ? data.jobs : [];
+      
+      setJobs(jobsArray);
       setSearchResults(data);
 
       toast({
@@ -118,7 +145,7 @@ export default function JobSearch({ onJobSelect }: JobSearchProps) {
         description: `Found ${data.jobs?.length || 0} job opportunities.`,
       });
     } catch (error) {
-      console.error("Job search error:", error);
+      // console.error("Job search error:", error);
 
       // More specific error handling
       let errorMessage =
@@ -155,6 +182,87 @@ export default function JobSearch({ onJobSelect }: JobSearchProps) {
       window.open(job.url, "_blank");
     }
   };
+
+  const handleLinkedInExtraction = useCallback(async () => {
+    if (!linkedinUrl.trim()) {
+      toast({
+        title: "LinkedIn URL required",
+        description: "Please enter a valid LinkedIn job posting URL.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate LinkedIn URL format
+    if (!linkedinUrl.includes('linkedin.com/jobs')) {
+      toast({
+        title: "Invalid LinkedIn URL",
+        description: "Please enter a valid LinkedIn job posting URL (should contain 'linkedin.com/jobs').",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsExtractingLinkedin(true);
+
+    try {
+      const response = await fetch('/api/jobs/extract-linkedin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: linkedinUrl.trim() }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to extract LinkedIn job');
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.job) {
+        // Add the extracted job to the search results
+        const extractedJob: Job = {
+          ...data.job,
+          // Ensure the job has all required fields for the interface
+          tags: data.job.tags || [],
+          job_employment_types: data.job.job_employment_type ? [data.job.job_employment_type] : ['Full-time'],
+          job_highlights: {
+            Qualifications: data.job.tags?.slice(0, 5) || [],
+            Benefits: ['Competitive salary', 'Health benefits'],
+            Responsibilities: ['View LinkedIn posting for detailed responsibilities']
+          }
+        };
+
+        // Add to beginning of jobs array
+        setJobs(prevJobs => [extractedJob, ...prevJobs]);
+        setSearchResults((prevResults: any) => ({
+          ...prevResults,
+          jobs: [extractedJob, ...(prevResults?.jobs || [])],
+          linkedinExtracted: true
+        }));
+
+        toast({
+          title: "LinkedIn job extracted successfully",
+          description: `Added "${extractedJob.title}" at ${extractedJob.company} to your search results.`,
+        });
+
+        // Clear the LinkedIn URL input
+        setLinkedinUrl("");
+      } else {
+        throw new Error('No job data returned from LinkedIn extraction');
+      }
+    } catch (error) {
+      console.error("LinkedIn extraction error:", error);
+      
+      toast({
+        title: "LinkedIn extraction failed",
+        description: error instanceof Error ? error.message : "Could not extract job data from LinkedIn URL. Please try again or copy the job details manually.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExtractingLinkedin(false);
+    }
+  }, [linkedinUrl, toast]);
 
   return (
     <div className="space-y-6">
@@ -245,11 +353,61 @@ export default function JobSearch({ onJobSelect }: JobSearchProps) {
         </CardContent>
       </Card>
 
+      {/* LinkedIn Job Extraction */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="flex items-center text-blue-800">
+            <ExternalLink className="w-5 h-5 mr-2" />
+            Extract from LinkedIn
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="text-sm font-medium mb-2 block text-blue-700">
+              LinkedIn Job URL
+            </label>
+            <Input
+              placeholder="https://www.linkedin.com/jobs/view/..."
+              value={linkedinUrl}
+              onChange={(e) => setLinkedinUrl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleLinkedInExtraction()}
+              className="bg-white"
+            />
+            <p className="text-xs text-blue-600 mt-1">
+              Paste a LinkedIn job posting URL to extract job details using our enhanced scraping
+            </p>
+          </div>
+          <Button
+            onClick={handleLinkedInExtraction}
+            disabled={isExtractingLinkedin}
+            className="w-full bg-blue-600 hover:bg-blue-700"
+          >
+            {isExtractingLinkedin ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Extracting from LinkedIn...
+              </>
+            ) : (
+              <>
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Extract Job from LinkedIn
+              </>
+            )}
+          </Button>
+          <div className="text-xs text-blue-600">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span>Enhanced fetch MCP server scraping active</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Search Results */}
       {searchResults && (
         <Card>
           <CardHeader>
-            <CardTitle>Search Results ({jobs.length} jobs found)</CardTitle>
+                            <CardTitle>Search Results ({Array.isArray(jobs) ? jobs.length : 0} jobs found)</CardTitle>
             {searchResults.query && (
               <p className="text-sm text-gray-600">
                 Showing results for "{searchResults.query}"
@@ -260,7 +418,7 @@ export default function JobSearch({ onJobSelect }: JobSearchProps) {
           <CardContent>
             <ScrollArea className="h-96">
               <div className="space-y-4">
-                {jobs.map((job) => (
+                {Array.isArray(jobs) && jobs.map((job) => (
                   <Card
                     key={job.id}
                     className="cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500"
@@ -465,7 +623,7 @@ export default function JobSearch({ onJobSelect }: JobSearchProps) {
                   </Card>
                 ))}
 
-                {jobs.length === 0 && !isSearching && searchResults && (
+                {(!Array.isArray(jobs) || jobs.length === 0) && !isSearching && searchResults && (
                   <div className="text-center py-8 text-gray-500">
                     <Search className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                     <p>No jobs found for your search criteria.</p>
@@ -491,7 +649,8 @@ export default function JobSearch({ onJobSelect }: JobSearchProps) {
               </h4>
               <p className="text-sm text-green-700 mt-1">
                 Connected to Indeed, LinkedIn, Glassdoor and other major job
-                boards via RapidAPI JSearch. Showing real-time job postings with
+                boards via RapidAPI JSearch. Enhanced with fetch MCP server for
+                direct LinkedIn scraping. Showing real-time job postings with
                 full details, salary ranges, and company information.
               </p>
             </div>

@@ -103,6 +103,7 @@ export default function JobAnalysis({
   const [jobDescription, setJobDescription] = useState(
     currentJob?.description || "",
   );
+  const [jobTitle, setJobTitle] = useState("AI Product Engineer, Mid-Level");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
 
@@ -118,6 +119,63 @@ export default function JobAnalysis({
 
     setIsAnalyzing(true);
     try {
+      // Check if it's a LinkedIn URL with currentJobId
+      if (jobUrl.includes('linkedin.com/jobs/search') && jobUrl.includes('currentJobId')) {
+        console.log('Detected LinkedIn search URL, using specialized extraction');
+        
+        // Use the LinkedIn extraction API
+        const linkedinResponse = await fetch("/api/jobs/extract-linkedin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            url: jobUrl,
+            jobTitle: jobTitle
+          }),
+        });
+
+        if (!linkedinResponse.ok) {
+          throw new Error("Failed to extract LinkedIn job");
+        }
+
+        const linkedinData = await linkedinResponse.json();
+        
+        if (linkedinData.success && linkedinData.job) {
+          const job = linkedinData.job;
+          
+          // Use the extracted job description for analysis
+          const analysisResponse = await fetch("/api/job/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              description: job.description,
+              url: job.url 
+            }),
+          });
+
+          if (!analysisResponse.ok) throw new Error("Failed to analyze extracted job");
+          const data = (await analysisResponse.json()) as AnalyzeResponse;
+          
+          setJobDescription(job.description);
+
+          // Save the analyzed job to the job tracker
+          await saveAnalyzedJob(data.analysis, job.description, job.url);
+
+          onJobAnalyzed({
+            description: job.description,
+            url: job.url,
+            analysis: data.analysis,
+          });
+
+          toast({
+            title: "LinkedIn job extracted and analyzed successfully",
+            description: `Extracted: ${job.title} at ${job.company}`,
+          });
+          
+          return;
+        }
+      }
+
+      // Fallback to regular job analysis
       const response = await fetch("/api/job/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -154,7 +212,7 @@ export default function JobAnalysis({
     } finally {
       setIsAnalyzing(false);
     }
-  }, [jobUrl, onJobAnalyzed, toast, saveAnalyzedJob]);
+  }, [jobUrl, jobTitle, onJobAnalyzed, toast, saveAnalyzedJob]);
 
   const analyzeJobDescription = useCallback(async () => {
     if (!jobDescription.trim()) {
@@ -255,6 +313,32 @@ export default function JobAnalysis({
               sites
             </p>
           </div>
+
+          {/* Job Title for LinkedIn Extraction */}
+          {jobUrl.includes('linkedin.com/jobs/search') && jobUrl.includes('currentJobId') && (
+            <div className="space-y-3">
+              <Label htmlFor="job-title">Job Title to Extract (Optional)</Label>
+              <Input
+                id="job-title"
+                placeholder="AI Product Engineer, Mid-Level"
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+                disabled={isAnalyzing}
+              />
+              <p className="text-xs text-gray-500">
+                Specify the exact job title to extract from LinkedIn search results
+              </p>
+              <Button
+                onClick={analyzeJobFromUrl}
+                disabled={isAnalyzing || !jobUrl.trim()}
+                variant="outline"
+                size="sm"
+              >
+                <Link className="w-4 h-4 mr-1" />
+                Extract & Analyze LinkedIn Job
+              </Button>
+            </div>
+          )}
 
           {/* Manual Description */}
           <div className="space-y-3">

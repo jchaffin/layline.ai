@@ -41,19 +41,63 @@ export async function POST(request: NextRequest) {
         
         const htmlContent = await fetchResponse.text();
         
-        // Simple text extraction - remove HTML tags and get clean text
-        const textContent = htmlContent
-          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-          .replace(/<[^>]*>/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-        
-        if (textContent.length < 100) {
-          throw new Error('Insufficient content extracted');
+        // Check if this is a LinkedIn search page with currentJobId
+        if (url.includes('linkedin.com/jobs/search') && url.includes('currentJobId')) {
+          console.log('Detected LinkedIn search page with currentJobId, attempting to extract specific job');
+          
+          // Try to extract the specific job from the search results
+          const jobIdMatch = url.match(/currentJobId=(\d+)/);
+          if (jobIdMatch) {
+            const jobId = jobIdMatch[1];
+            console.log('Extracted job ID:', jobId);
+            
+            // Look for job information in the HTML content
+            const jobTitleMatch = htmlContent.match(/<h3[^>]*>([^<]+)<\/h3>/gi);
+            const companyMatch = htmlContent.match(/<h4[^>]*>([^<]+)<\/h4>/gi);
+            const locationMatch = htmlContent.match(/([A-Za-z\s,]+),\s*[A-Z]{2}\s*\d+\s*hours?\s*ago/gi);
+            
+            if (jobTitleMatch && jobTitleMatch.length > 0) {
+              const jobTitle = jobTitleMatch[0].replace(/<[^>]*>/g, '').trim();
+              const company = companyMatch && companyMatch.length > 0 ? companyMatch[0].replace(/<[^>]*>/g, '').trim() : 'Company not specified';
+              const location = locationMatch && locationMatch.length > 0 ? locationMatch[0].replace(/<[^>]*>/g, '').trim() : 'Location not specified';
+              
+              // Create a structured job description
+              jobDescriptionText = `
+Job Title: ${jobTitle}
+Company: ${company}
+Location: ${location}
+Job ID: ${jobId}
+
+This job was extracted from LinkedIn search results. For a complete job description, please visit the original LinkedIn posting or copy the full job description manually.
+
+To get the full job details, please:
+1. Click on the job title on LinkedIn
+2. Copy the complete job description
+3. Paste it into the job analysis form
+              `.trim();
+              
+              console.log('Extracted job info:', { jobTitle, company, location, jobId });
+            }
+          }
         }
         
-        jobDescriptionText = textContent;
+        // If we don't have job description yet, fall back to general text extraction
+        if (!jobDescriptionText) {
+          // Simple text extraction - remove HTML tags and get clean text
+          const textContent = htmlContent
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+            .replace(/<[^>]*>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          
+          if (textContent.length < 100) {
+            throw new Error('Insufficient content extracted');
+          }
+          
+          jobDescriptionText = textContent;
+        }
+        
         console.log('Successfully extracted job description from URL, length:', jobDescriptionText.length);
         
       } catch (fetchError) {

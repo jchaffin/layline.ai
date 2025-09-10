@@ -1,10 +1,10 @@
-declare module 'pdf-parse' {
+declare module '@jchaffin/pdf-parse' {
   interface PDFData {
+    text: string;
     numpages: number;
     numrender: number;
     info: any;
     metadata: any;
-    text: string;
     version: string;
   }
 
@@ -12,10 +12,8 @@ declare module 'pdf-parse' {
     pagerender?: (pageData: any) => Promise<string>;
     max?: number;
     version?: string;
-    normalizeWhitespace?: boolean;
-    disableCombineTextItems?: boolean;
   }
 
-  function pdfParse(dataBuffer: Buffer, options?: PDFOptions): Promise<PDFData>;
-  export default pdfParse;
+  function pdfParse(buffer: Buffer, options?: PDFOptions): Promise<PDFData>;
+  export = pdfParse;
 }

@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -13,31 +15,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { SimpleLocationInput } from "@/components/simple-location-input";
 import {
   Search,
   MapPin,
-  Calendar,
-  DollarSign,
   ExternalLink,
   Building,
   Clock,
-  Users,
-  Award,
-  CheckCircle,
-  Filter,
-  SortAsc,
-  Bookmark,
   Briefcase,
-  TrendingUp,
   Star,
-  Globe,
-  Heart,
-  Share2,
   Target,
   Zap,
+  Heart,
+  Share2,
+  Globe,
+  DollarSign,
+  Users,
+  CheckCircle,
+  Award,
   Settings,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -83,17 +78,22 @@ interface JobBoardProps {
 
 export default function JobBoard({ onJobSelect, resumeData }: JobBoardProps) {
   const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState("Software Engineer");
-  const [location, setLocation] = useState("San Francisco, CA");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [location, setLocation] = useState("");
   const [jobType, setJobType] = useState("");
-  const [salaryRange, setSalaryRange] = useState("anysalary");
-  const [datePosted, setDatePosted] = useState("anytime");
-  const [radius, setRadius] = useState("25");
-  const [sortBy, setSortBy] = useState("relevance");
   const [isSearching, setIsSearching] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [searchResults, setSearchResults] = useState<any>(null);
+  const [experienceLevel, setExperienceLevel] = useState<string>("mid");
+  const [preferredSalary, setPreferredSalary] = useState<number>(100000);
+  const [showFitScores, setShowFitScores] = useState(true);
+  
+  // Additional missing state variables
+  const [datePosted, setDatePosted] = useState<string>("anytime");
+  const [radius, setRadius] = useState<string>("25");
+  const [salaryRange, setSalaryRange] = useState<string>("anysalary");
+  const [sortBy, setSortBy] = useState<string>("fit");
+  const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [userSkills, setUserSkills] = useState<string[]>([]);
@@ -104,9 +104,6 @@ export default function JobBoard({ onJobSelect, resumeData }: JobBoardProps) {
       handleSearch();
     }
   }, []); // Only run on mount
-  const [experienceLevel, setExperienceLevel] = useState<string>("mid");
-  const [preferredSalary, setPreferredSalary] = useState<number>(100000);
-  const [showFitScores, setShowFitScores] = useState(true);
 
   const calculateJobFit = useCallback(
     (job: Job): { score: number; reasons: string[] } => {
@@ -123,7 +120,7 @@ export default function JobBoard({ onJobSelect, resumeData }: JobBoardProps) {
           ].filter(Boolean)
         : userSkills;
 
-      const resumeExperience = resumeData?.workExperience || [];
+      const resumeExperience = resumeData?.experience || [];
       const totalYearsExp = resumeExperience.reduce(
         (total: number, exp: any) => {
           if (exp.startDate && exp.endDate) {
@@ -139,80 +136,114 @@ export default function JobBoard({ onJobSelect, resumeData }: JobBoardProps) {
         0,
       );
 
-      // Skills matching (45% of score) - increased weight for resume-based matching
-      const skillsWeight = 45;
+      // Skills matching (40% of score) - enhanced matching algorithm
+      const skillsWeight = 40;
       if (resumeSkills.length > 0) {
-        const jobText =
-          `${job.title} ${job.description} ${job.job_highlights?.Qualifications?.join(" ") || ""}`.toLowerCase();
-        const matchedSkills = resumeSkills.filter((skill: string) =>
-          jobText.includes(skill.toLowerCase()),
+        const jobText = `${job.title} ${job.description} ${job.job_highlights?.Qualifications?.join(" ") || ""} ${job.job_highlights?.Responsibilities?.join(" ") || ""}`.toLowerCase();
+        
+        // Enhanced skill matching with fuzzy matching and synonyms
+        const exactMatches = resumeSkills.filter((skill: string) =>
+          jobText.includes(skill.toLowerCase())
         );
-        const skillMatch =
-          (matchedSkills.length / resumeSkills.length) * skillsWeight;
-        score += skillMatch;
+        
+        // Check for skill variations and synonyms
+        const skillSynonyms: { [key: string]: string[] } = {
+          'javascript': ['js', 'node', 'react', 'vue', 'angular'],
+          'python': ['django', 'flask', 'fastapi', 'pandas', 'numpy'],
+          'aws': ['amazon web services', 'ec2', 's3', 'lambda', 'cloudformation'],
+          'docker': ['containerization', 'kubernetes', 'k8s'],
+          'sql': ['mysql', 'postgresql', 'oracle', 'database'],
+          'react': ['reactjs', 'jsx', 'hooks'],
+          'typescript': ['ts', 'javascript'],
+          'machine learning': ['ml', 'ai', 'artificial intelligence', 'deep learning'],
+          'agile': ['scrum', 'kanban', 'sprint'],
+          'leadership': ['management', 'team lead', 'mentor', 'supervise']
+        };
+        
+        let relatedMatches = 0;
+        resumeSkills.forEach((skill: string) => {
+          const skillLower = skill.toLowerCase();
+          const synonyms = skillSynonyms[skillLower] || [];
+          const hasRelatedMatch = synonyms.some(synonym => jobText.includes(synonym));
+          if (hasRelatedMatch && !exactMatches.some(exact => exact.toLowerCase() === skillLower)) {
+            relatedMatches++;
+          }
+        });
+        
+        // Calculate weighted skill score
+        const exactMatchScore = (exactMatches.length / resumeSkills.length) * 0.8;
+        const relatedMatchScore = (relatedMatches / resumeSkills.length) * 0.3;
+        const totalSkillScore = Math.min(1, exactMatchScore + relatedMatchScore) * skillsWeight;
+        
+        score += totalSkillScore;
 
-        if (matchedSkills.length > 0) {
+        if (exactMatches.length > 0 || relatedMatches > 0) {
           reasons.push(
-            `${matchedSkills.length}/${resumeSkills.length} skills match from resume`,
+            `${exactMatches.length} exact + ${relatedMatches} related skills match`
           );
         }
       } else {
-        score += skillsWeight * 0.4; // Lower default score
+        score += skillsWeight * 0.3; // Lower default score
       }
 
-      // Experience level matching (25% of score) - based on actual work history
-      const experienceWeight = 25;
+      // Experience level matching (30% of score) - enhanced experience analysis
+      const experienceWeight = 30;
       const titleLower = job.title.toLowerCase();
+      const descriptionLower = job.description.toLowerCase();
       let experienceMatch = 0;
 
-      if (totalYearsExp < 2) {
-        if (
-          titleLower.includes("junior") ||
-          titleLower.includes("entry") ||
-          titleLower.includes("associate") ||
-          titleLower.includes("intern")
-        ) {
-          experienceMatch = experienceWeight;
-          reasons.push("Experience level matches (entry)");
-        } else if (
-          !titleLower.includes("senior") &&
-          !titleLower.includes("lead") &&
-          !titleLower.includes("principal")
-        ) {
-          experienceMatch = experienceWeight * 0.7;
-        }
-      } else if (totalYearsExp >= 2 && totalYearsExp < 5) {
-        if (
-          !titleLower.includes("junior") &&
-          !titleLower.includes("senior") &&
-          !titleLower.includes("lead")
-        ) {
-          experienceMatch = experienceWeight;
-          reasons.push("Experience level matches (mid-level)");
-        } else if (titleLower.includes("senior")) {
-          experienceMatch = experienceWeight * 0.8;
-        }
-      } else if (totalYearsExp >= 5) {
-        if (
-          titleLower.includes("senior") ||
-          titleLower.includes("lead") ||
-          titleLower.includes("principal") ||
-          titleLower.includes("staff")
-        ) {
-          experienceMatch = experienceWeight;
-          reasons.push("Experience level matches (senior)");
-        } else {
-          experienceMatch = experienceWeight * 0.6;
+      // Enhanced experience requirements detection
+      let requiredYears = 2; // default
+      
+      // Parse experience requirements from job description
+      const expMatches = descriptionLower.match(/(\d+)[\+\-\s]*years?\s+(?:of\s+)?experience/i);
+      if (expMatches) {
+        requiredYears = parseInt(expMatches[1]);
+      } else {
+        // Fallback to title-based detection with more nuance
+        if (titleLower.includes("senior") || titleLower.includes("sr")) {
+          requiredYears = 5;
+        } else if (titleLower.includes("lead") || titleLower.includes("principal") || titleLower.includes("staff")) {
+          requiredYears = 7;
+        } else if (titleLower.includes("director") || titleLower.includes("vp")) {
+          requiredYears = 10;
+        } else if (titleLower.includes("junior") || titleLower.includes("entry") || titleLower.includes("associate")) {
+          requiredYears = 0;
+        } else if (titleLower.includes("mid") || titleLower.includes("ii") || titleLower.includes("2")) {
+          requiredYears = 3;
         }
       }
+
+      // Calculate experience match with more sophisticated scoring
+      if (totalYearsExp >= requiredYears) {
+        // Perfect match for meeting requirements, bonus for exceeding
+        const baseScore = 0.8;
+        const bonusScore = Math.min(0.2, (totalYearsExp - requiredYears) / 10 * 0.2);
+        experienceMatch = (baseScore + bonusScore) * experienceWeight;
+        
+        if (totalYearsExp > requiredYears * 1.5) {
+          reasons.push(`${totalYearsExp.toFixed(1)} years experience (exceeds ${requiredYears} required)`);
+        } else {
+          reasons.push(`${totalYearsExp.toFixed(1)} years experience (meets ${requiredYears} required)`);
+        }
+      } else if (totalYearsExp > 0) {
+        // Partial credit for some experience
+        experienceMatch = (totalYearsExp / Math.max(requiredYears, 1)) * 0.7 * experienceWeight;
+        reasons.push(`${totalYearsExp.toFixed(1)} years experience (needs ${requiredYears})`);
+      } else {
+        // No experience detected
+        experienceMatch = 0.1 * experienceWeight; // Small base score
+        reasons.push("Experience level unclear from resume");
+      }
+
       score += experienceMatch;
 
       // Job title/role similarity (15% of score) - new factor based on resume
       const roleWeight = 15;
-      if (resumeData?.workExperience?.length > 0) {
-        const recentRoles = resumeData.workExperience.slice(0, 3); // Last 3 jobs
+      if (resumeData?.experience?.length > 0) {
+        const recentRoles = resumeData.experience.slice(0, 3); // Last 3 jobs
         const hasRelevantRole = recentRoles.some((exp: any) => {
-          const expTitle = exp.jobTitle?.toLowerCase() || "";
+          const expTitle = exp.role?.toLowerCase() || "";
           const jobTitle = job.title.toLowerCase();
           return (
             jobTitle.includes(expTitle.split(" ")[0]) ||
@@ -254,10 +285,10 @@ export default function JobBoard({ onJobSelect, resumeData }: JobBoardProps) {
 
       // Company/industry match (5% of score)
       const companyWeight = 5;
-      if (resumeData?.workExperience?.length > 0) {
-        const hasRelevantIndustry = resumeData.workExperience.some(
-          (exp: any) => {
-            const expCompany = exp.companyName?.toLowerCase() || "";
+      if (resumeData?.experience?.length > 0) {
+        const hasRelevantIndustry = resumeData.experience.some(
+                      (exp: any) => {
+              const expCompany = exp.company?.toLowerCase() || "";
             const jobCompany = job.company.toLowerCase();
             return (
               expCompany.includes(jobCompany.split(" ")[0]) ||
@@ -309,7 +340,7 @@ export default function JobBoard({ onJobSelect, resumeData }: JobBoardProps) {
     if (!searchQuery.trim()) {
       toast({
         title: "Search query required",
-        description: "Please enter a job title, skill, or company name.",
+        description: "Please enter a job title or keywords.",
         variant: "destructive",
       });
       return;
@@ -321,9 +352,8 @@ export default function JobBoard({ onJobSelect, resumeData }: JobBoardProps) {
       const params = new URLSearchParams({
         q: searchQuery,
         location: location,
-        radius: radius,
-        jobtype: jobType === "all" ? "" : jobType,
-        limit: "50",
+        jobtype: jobType || "",
+        limit: "25",
       });
 
       if (datePosted && datePosted !== "anytime") {
@@ -333,13 +363,21 @@ export default function JobBoard({ onJobSelect, resumeData }: JobBoardProps) {
       const response = await fetch(`/api/jobs/search?${params}`);
 
       if (!response.ok) {
-        throw new Error("Search failed");
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = (errorData && typeof errorData === 'object' && 'error' in errorData) 
+          ? errorData.error 
+          : `Search failed: ${response.status}`;
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
 
+      // Ensure jobs is an array
+      const jobsArray = Array.isArray(data.jobs) ? data.jobs : [];
+      console.log('Jobs data:', data.jobs, 'Jobs array:', jobsArray);
+
       // Calculate fit scores for each job
-      const jobsWithFit = (data.jobs || []).map((job: Job) => {
+      const jobsWithFit = jobsArray.map((job: Job) => {
         const fit = calculateJobFit(job);
         return {
           ...job,
@@ -752,22 +790,22 @@ export default function JobBoard({ onJobSelect, resumeData }: JobBoardProps) {
   );
 
   return (
-    <div className="space-y-6">
-      {/* Advanced Search Form */}
+    <div className="space-y-6 max-w-6xl mx-auto">
+      {/* Simple Search Form */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <Briefcase className="w-5 h-5 mr-2" />
-            Job Board - Advanced Search
+            Job Search
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Tabs defaultValue="search" className="w-full">
+          <Tabs defaultValue="search" className="space-y-4">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="search">Search</TabsTrigger>
-              <TabsTrigger value="filters">Filters & Sort</TabsTrigger>
+              <TabsTrigger value="filters">Filters</TabsTrigger>
             </TabsList>
-
+            
             <TabsContent value="search" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -941,7 +979,7 @@ export default function JobBoard({ onJobSelect, resumeData }: JobBoardProps) {
                           Experience:
                         </span>
                         <p className="text-green-600">
-                          {resumeData.workExperience?.length || 0} positions
+                          {resumeData.experience?.length || 0} positions
                         </p>
                       </div>
                       <div>
@@ -949,7 +987,7 @@ export default function JobBoard({ onJobSelect, resumeData }: JobBoardProps) {
                           Latest Role:
                         </span>
                         <p className="text-green-600">
-                          {resumeData.workExperience?.[0]?.jobTitle ||
+                          {resumeData.experience?.[0]?.role ||
                             "Not specified"}
                         </p>
                       </div>
@@ -1073,7 +1111,7 @@ export default function JobBoard({ onJobSelect, resumeData }: JobBoardProps) {
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="font-semibold text-lg">
-                  {filteredJobs.length} Jobs Found
+                  {Array.isArray(filteredJobs) ? filteredJobs.length : 0} Jobs Found
                 </h3>
                 <p className="text-sm text-gray-600">
                   {searchResults.query && `"${searchResults.query}"`}
@@ -1124,23 +1162,44 @@ export default function JobBoard({ onJobSelect, resumeData }: JobBoardProps) {
             <ScrollArea className="h-[800px]">
               {viewMode === "list" ? (
                 <div className="space-y-6">
-                  {filteredJobs.map((job) => (
+                  {Array.isArray(filteredJobs) && filteredJobs.map((job) => (
                     <JobCard key={job.id} job={job} />
                   ))}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {filteredJobs.map((job) => (
+                  {Array.isArray(filteredJobs) && filteredJobs.map((job) => (
                     <JobCard key={job.id} job={job} isGrid={true} />
                   ))}
                 </div>
               )}
 
-              {filteredJobs.length === 0 && !isSearching && searchResults && (
+              {(!Array.isArray(filteredJobs) || filteredJobs.length === 0) && !isSearching && (
                 <div className="text-center py-12 text-gray-500">
-                  <Briefcase className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                  <h3 className="font-medium text-lg mb-2">No jobs found</h3>
-                  <p>Try adjusting your search criteria or filters.</p>
+                  {searchResults ? (
+                    <>
+                      <Briefcase className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                      <h3 className="font-medium text-lg mb-2">No jobs found</h3>
+                      <p className="mb-4">Try adjusting your search criteria or filters.</p>
+                      <div className="space-y-2 text-sm text-gray-400">
+                        <p>• Try broader search terms</p>
+                        <p>• Expand location radius</p>
+                        <p>• Remove filters</p>
+                        <p>• Check for typos</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-16 h-16 mx-auto mb-4 text-blue-300" />
+                      <h3 className="font-medium text-lg mb-2">Ready to find your next opportunity?</h3>
+                      <p className="mb-4">Enter a job title or keywords to start searching.</p>
+                      <div className="space-y-2 text-sm text-gray-400">
+                        <p>• Search across thousands of job postings</p>
+                        <p>• AI-powered match scoring</p>
+                        <p>• Real-time results from multiple sources</p>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </ScrollArea>

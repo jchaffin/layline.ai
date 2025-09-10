@@ -147,7 +147,7 @@ async function handleUpload(request: NextRequest) {
           const buffer = Buffer.from(arrayBuffer);
 
           // Import pdf-parse dynamically
-          const pdfParse = (await import("pdf-parse")).default;
+          const pdfParse = (await import("@jchaffin/pdf-parse")).default;
 
           // Custom render function for better text extraction
           function renderPage(pageData: any) {

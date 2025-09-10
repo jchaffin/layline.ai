@@ -29,6 +29,16 @@ interface WorkExperienceValidatorProps {
   originalText: string;
 }
 
+// Helper function to format dates
+const formatDate = (dateString: string): string => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (!isNaN(date.getTime())) {
+    return `${date.getMonth() + 1}/${date.getFullYear()}`;
+  }
+  return dateString;
+};
+
 export function WorkExperienceValidator({ experiences, onUpdate, originalText }: WorkExperienceValidatorProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [validationIssues, setValidationIssues] = useState<string[]>([]);
@@ -228,7 +238,7 @@ export function WorkExperienceValidator({ experiences, onUpdate, originalText }:
 
                 <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-3">
                   <div>
-                    <strong>Duration:</strong> {exp.startDate} - {exp.endDate}
+                    <strong>Duration:</strong> {exp.isCurrentRole ? `${formatDate(exp.startDate)} - Present` : `${formatDate(exp.startDate)} - ${formatDate(exp.endDate)}`}
                   </div>
                   <div>
                     <strong>Location:</strong> {exp.location || 'Not specified'}

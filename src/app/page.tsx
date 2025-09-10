@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import ResumeMatchAnalysis from "@/components/pdf/ResumeMatchAnalysis";
 import TailoredResumesList from "@/components/pdf/TailoredResumesList";
@@ -13,7 +13,10 @@ import { CalendarDemo } from "@/components/calendar-demo";
 import JobTracker from "@/components/job/JobTracker";
 import JobBoard from "@/components/job/JobBoard";
 import JobSearch from "@/components/job/JobSearch";
+import JobManager from "@/components/job/JobManager";
 import ResumeUploadWithPreview from "@/components/pdf/ResumeUploadWithPreview";
+import DocumentManager from "@/components/document-manager";
+import DocumentEditView from "@/components/document-edit-view";
 import InterviewPrep from "@/components/interview/InterviewPrep";
 import {
   CheckCircle,
@@ -22,6 +25,8 @@ import {
   MessageSquare,
   Mic,
   BarChart3,
+  FolderOpen,
+  ChevronLeft,
 } from "lucide-react";
 import type {
   ParsedResume,
@@ -38,6 +43,22 @@ export default function HomePage() {
   const [currentJobDescription, setCurrentJobDescription] = useState<
     string | null
   >(null);
+  const [documentsView, setDocumentsView] = useState<'grid' | 'upload' | 'edit'>('grid');
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
+
+  // Load cached resume data on mount
+  useEffect(() => {
+    const cached = localStorage.getItem('parsedResumeData');
+    if (cached && !resumeData) {
+      try {
+        const data = JSON.parse(cached);
+        setResumeData(data);
+        console.log("Loaded resume data from localStorage:", data);
+      } catch (error) {
+        console.error('Error loading cached resume:', error);
+      }
+    }
+  }, [resumeData]);
 
   const handleResumeUploaded = (data: ParsedResume) => {
     console.log("Page handleResumeUploaded called with:", data);
@@ -212,83 +233,64 @@ export default function HomePage() {
         );
 
       case "documents":
-        return (
-          <div className="h-screen">
-            <ResumeUploadWithPreview
-              onResumeUploaded={handleResumeUploaded}
-              currentResume={resumeData}
-              onNavigateToJobs={() => setCurrentStep("jobs")}
+        if (documentsView === 'upload') {
+          return (
+            <div className="h-screen">
+              <ResumeUploadWithPreview
+                onResumeUploaded={(data) => {
+                  handleResumeUploaded(data);
+                  setDocumentsView('grid'); // Return to grid after upload
+                }}
+                currentResume={resumeData}
+                onNavigateToJobs={() => setCurrentStep("jobs")}
+              />
+            </div>
+          );
+        }
+        
+        if (documentsView === 'edit' && selectedDocument) {
+          return (
+            <DocumentEditView 
+              document={selectedDocument}
+              onBack={() => {
+                setDocumentsView('grid');
+                setSelectedDocument(null);
+              }}
+              onSave={(data) => {
+                handleResumeUploaded(data);
+                setDocumentsView('grid');
+                setSelectedDocument(null);
+              }}
             />
-          </div>
+          );
+        }
+        
+        return (
+          <DocumentManager 
+            currentResume={resumeData}
+            onDocumentSelect={(document) => {
+              console.log('Selected document:', document);
+            }}
+            onNavigateToUpload={() => setDocumentsView('upload')}
+            onNavigateToEdit={(document) => {
+              setSelectedDocument(document);
+              setDocumentsView('edit');
+            }}
+          />
         );
 
       case "jobs":
         return (
-          <div className="max-w-6xl mx-auto space-y-8">
+          <div className="max-w-7xl mx-auto space-y-8">
             <div className="text-center mb-8">
               <h1 className="text-4xl font-bold text-gray-900 mb-4">
-                Job Search & Applications
+                Job Search & Application Tracker
               </h1>
               <p className="text-xl text-gray-600 mb-8">
-                Search for jobs from Indeed and other sources, then track your
-                applications.
+                Search jobs from multiple sources and track your applications in one place.
               </p>
             </div>
-
-            <div className="space-y-8">
-              {/* Job Analysis */}
-              <JobAnalysis
-                onJobAnalyzed={handleJobAnalyzed}
-                currentJob={
-                  currentJobDescription
-                    ? {
-                        description: currentJobDescription,
-                        analysis: jobData,
-                      }
-                    : null
-                }
-              />
-
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                <div>
-                  <JobSearch
-                    onJobSelect={(job) => {
-                      // When a job is selected from search, auto-populate job analysis
-                      console.log("Selected job:", job);
-                      if (job.description && job.company && job.title) {
-                        handleJobAnalyzed({
-                          description: job.description,
-                          url: job.url,
-                          analysis: {
-                            company: job.company,
-                            role: job.title,
-                            experience:
-                              "3+ years of relevant experience required",
-                            location: job.location,
-                            workType:
-                              job.type === "Remote" ? "Remote" : "Onsite",
-                            experienceLevel: "Mid",
-                            requiredYears: 3,
-                            requiredSkills: job.tags || [],
-                            preferredSkills: [],
-                            responsibilities: [
-                              job.description.slice(0, 100) + "...",
-                            ],
-                            qualifications: [],
-                            companyInfo: `Join ${job.company} and contribute to their team.`,
-                            keywords: job.tags || [],
-                            sentiment: 0.8,
-                          },
-                        });
-                      }
-                    }}
-                  />
-                </div>
-                <div>
-                  <JobTracker userId="demo-user" hasResume={!!resumeData} />
-                </div>
-              </div>
-            </div>
+            <JobManager />
           </div>
         );
 
@@ -584,6 +586,19 @@ export default function HomePage() {
           <div className="p-4 lg:p-8">{renderCurrentStep()}</div>
         )}
       </div>
+
+      {/* Floating Documents Button - appears on left side when not on documents page */}
+      {currentStep !== "documents" && (
+        <div className="fixed left-4 top-1/2 transform -translate-y-1/2 z-50">
+          <Button
+            onClick={() => setCurrentStep("documents")}
+            className="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+            title="Go to Documents"
+          >
+            <FolderOpen className="w-5 h-5" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

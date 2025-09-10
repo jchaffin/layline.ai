@@ -1,285 +1,315 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  Download, 
   FileText, 
-  Calendar, 
-  Upload,
-  File,
-  Star,
-  Briefcase,
-  Trash2
+  Download, 
+  Eye, 
+  Trash2, 
+  Plus,
+  Calendar,
+  User
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import PDFThumbnail from '@/components/pdf/PDFThumbnail';
 
 interface Document {
-  key: string;
-  size: number;
-  lastModified: string;
-  type: string;
-  fileName: string;
-  downloadUrl: string;
-  signedDownloadUrl: string;
-  metadata?: {
-    originalFileName?: string;
-    companyName?: string;
-    roleTitle?: string;
-    uploadedAt?: string;
-    createdAt?: string;
-  };
+  id: string;
+  name: string;
+  type: 'resume' | 'cover-letter' | 'certificate';
+  uploadDate: Date;
+  size: string;
+  thumbnail?: string;
+  data?: any;
 }
 
-export function DocumentManager() {
-  const [activeTab, setActiveTab] = useState('all');
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+interface DocumentManagerProps {
+  currentResume?: any;
+  onDocumentSelect?: (document: Document) => void;
+  onNavigateToUpload?: () => void;
+  onNavigateToEdit?: (document: Document) => void;
+}
 
-  const { data: documents = { documents: [], total: 0 }, isLoading } = useQuery<{ documents: Document[]; total: number }>({
-    queryKey: ['/api/documents/list', activeTab],
-    queryFn: async () => {
-      const response = await fetch(`/api/documents/list?type=${activeTab}&limit=50`);
-      if (!response.ok) throw new Error('Failed to fetch documents');
-      return response.json();
-    },
-  });
+export default function DocumentManager({ 
+  currentResume, 
+  onDocumentSelect,
+  onNavigateToUpload,
+  onNavigateToEdit
+}: DocumentManagerProps) {
+  const [documents, setDocuments] = useState<Document[]>([]);
 
-  const downloadMutation = useMutation({
-    mutationFn: async (document: Document) => {
-      const response = await fetch(document.signedDownloadUrl);
-      if (!response.ok) throw new Error('Failed to get download URL');
-      const { downloadUrl } = await response.json();
+  useEffect(() => {
+    // Load documents from localStorage and create mock data
+    const loadDocuments = () => {
+      const docs: Document[] = [];
       
-      // Open download URL in new tab
-      window.open(downloadUrl, '_blank');
-    },
-    onSuccess: () => {
-      toast({
-        title: 'Download started',
-        description: 'Your document download has begun.',
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: 'Download failed',
-        description: error instanceof Error ? error.message : 'Failed to download document',
-        variant: 'destructive',
-      });
-    },
-  });
+      // Add current resume if exists
+      if (currentResume) {
+        docs.push({
+          id: 'current-resume',
+          name: currentResume.contact?.name ? 
+            `${currentResume.contact.name} - Resume` : 
+            'My Resume',
+          type: 'resume',
+          uploadDate: new Date(),
+          size: '245 KB',
+          data: currentResume
+        });
+      }
 
-  const deleteMutation = useMutation({
-    mutationFn: async (document: Document) => {
-      const response = await fetch(`/api/documents/delete`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
+      // Add some mock documents for demo
+      docs.push(
+        {
+          id: 'resume-v1',
+          name: 'Software Engineer Resume v1',
+          type: 'resume',
+          uploadDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          size: '128 KB'
         },
-        body: JSON.stringify({ key: document.key }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to delete document');
-      return response.json();
-    },
-    onSuccess: () => {
-      // Refresh the documents list
-      queryClient.invalidateQueries({ queryKey: ['/api/documents/list'] });
-      toast({
-        title: 'Document deleted',
-        description: 'The document has been permanently removed.',
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: 'Delete failed',
-        description: error instanceof Error ? error.message : 'Failed to delete document',
-        variant: 'destructive',
-      });
-    },
-  });
+        {
+          id: 'resume-v2', 
+          name: 'Frontend Developer Resume',
+          type: 'resume',
+          uploadDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+          size: '156 KB'
+        },
+        {
+          id: 'cover-letter-1',
+          name: 'Cover Letter - Tech Company',
+          type: 'cover-letter',
+          uploadDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+          size: '89 KB'
+        }
+      );
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
+      setDocuments(docs);
+    };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+    loadDocuments();
+  }, [currentResume]);
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'original':
-        return <Upload className="w-4 h-4" />;
-      case 'tailored':
-        return <Star className="w-4 h-4" />;
-      case 'parsed':
-        return <FileText className="w-4 h-4" />;
+      case 'resume':
+        return <User className="w-5 h-5" />;
+      case 'cover-letter':
+        return <FileText className="w-5 h-5" />;
       default:
-        return <File className="w-4 h-4" />;
+        return <FileText className="w-5 h-5" />;
     }
   };
 
-  const getTypeBadgeColor = (type: string) => {
+  const getTypeColor = (type: string) => {
     switch (type) {
-      case 'original':
+      case 'resume':
         return 'bg-blue-100 text-blue-800';
-      case 'tailored':
-        return 'bg-purple-100 text-purple-800';
-      case 'parsed':
+      case 'cover-letter':
         return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Document Library</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
-            <p className="text-gray-600 mt-4">Loading your documents...</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="w-5 h-5" />
-          Document Library
-        </CardTitle>
-        <p className="text-sm text-gray-600">
-          Manage your uploaded resumes, tailored versions, and processed documents
-        </p>
-      </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="all">All Documents</TabsTrigger>
-            <TabsTrigger value="original">Original Files</TabsTrigger>
-            <TabsTrigger value="tailored">Tailored Resumes</TabsTrigger>
-            <TabsTrigger value="parsed">Processed Data</TabsTrigger>
-          </TabsList>
+    <div className="h-screen bg-gray-50 p-6 overflow-auto">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">My Documents</h1>
+            <p className="text-gray-600">Manage your resumes, cover letters, and certificates</p>
+          </div>
+          <Button 
+            onClick={onNavigateToUpload}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Upload New Document
+          </Button>
+        </div>
 
-          <TabsContent value={activeTab} className="mt-6">
-            {documents.documents.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No documents found</h3>
-                <p className="text-gray-600 mb-6">
-                  {activeTab === 'all' 
-                    ? 'Upload your first resume to get started'
-                    : `No ${activeTab} documents available`
-                  }
-                </p>
-                {activeTab === 'all' && (
-                  <Button>
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload Resume
-                  </Button>
-                )}
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <FileText className="w-8 h-8 text-blue-600" />
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Documents</p>
+                  <p className="text-2xl font-bold text-gray-900">{documents.length}</p>
+                </div>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {documents.documents.map((document: Document, index: number) => (
-                  <div
-                    key={`${document.key}-${index}-${document.lastModified}`}
-                    className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="flex-shrink-0">
-                          {getTypeIcon(document.type)}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <User className="w-8 h-8 text-green-600" />
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Resumes</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {documents.filter(d => d.type === 'resume').length}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <FileText className="w-8 h-8 text-purple-600" />
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Cover Letters</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {documents.filter(d => d.type === 'cover-letter').length}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <Calendar className="w-8 h-8 text-orange-600" />
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Last Updated</p>
+                  <p className="text-sm font-bold text-gray-900">Today</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Documents Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {documents.map((doc) => (
+            <Card 
+              key={doc.id} 
+              className="hover:shadow-lg transition-shadow cursor-pointer group"
+              onClick={() => onNavigateToEdit?.(doc)}
+            >
+              <CardContent className="p-0">
+                {/* Thumbnail */}
+                <div className="h-48 relative overflow-hidden">
+                  {doc.type === 'resume' && doc.data ? (
+                    <PDFThumbnail 
+                      resumeData={doc.data}
+                      className="h-full w-full"
+                      fallbackIcon={getTypeIcon(doc.type)}
+                    />
+                  ) : (
+                    <div className="h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                      <div className="text-center">
+                        {getTypeIcon(doc.type)}
+                        <div className="mt-2 text-xs text-gray-500 font-medium uppercase tracking-wide">
+                          {doc.type.replace('-', ' ')}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-sm font-medium truncate">
-                              {document.metadata?.originalFileName || document.fileName}
-                            </h3>
-                            <Badge className={getTypeBadgeColor(document.type)}>
-                              {document.type}
-                            </Badge>
-                          </div>
-                          
-                          <div className="flex items-center gap-4 text-xs text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {formatDate(document.lastModified)}
-                            </span>
-                            <span>{formatFileSize(document.size)}</span>
-                            {document.metadata?.companyName && (
-                              <span className="flex items-center gap-1">
-                                <Briefcase className="w-3 h-3" />
-                                {document.metadata.companyName}
-                              </span>
-                            )}
-                          </div>
-                          
-                          {document.metadata?.roleTitle && (
-                            <p className="text-xs text-gray-600 mt-1">
-                              {document.metadata.roleTitle}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => downloadMutation.mutate(document)}
-                          disabled={downloadMutation.isPending}
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deleteMutation.mutate(document)}
-                          disabled={deleteMutation.isPending}
-                          className="text-red-600 hover:bg-red-50 border-red-200"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
                       </div>
                     </div>
+                  )}
+                  
+                  {/* Overlay actions */}
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
+                    <Button 
+                      size="sm" 
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNavigateToEdit?.(doc);
+                      }}
+                      title="View & Edit"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Handle download
+                        console.log('Download document:', doc.name);
+                      }}
+                      title="Download"
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Handle delete
+                        if (confirm(`Delete ${doc.name}?`)) {
+                          setDocuments(prev => prev.filter(d => d.id !== doc.id));
+                        }
+                      }}
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+                </div>
 
-        {documents.documents.length > 0 && (
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Total: {documents.total} documents
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                {/* Content */}
+                <div className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-semibold text-gray-900 text-sm line-clamp-2">
+                      {doc.name}
+                    </h3>
+                    <Badge className={getTypeColor(doc.type)}>
+                      {doc.type}
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-1 text-xs text-gray-500">
+                    <div className="flex items-center">
+                      <Calendar className="w-3 h-3 mr-1" />
+                      {formatDate(doc.uploadDate)}
+                    </div>
+                    <div className="flex items-center">
+                      <FileText className="w-3 h-3 mr-1" />
+                      {doc.size}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* Add New Document Card */}
+          <Card 
+            className="hover:shadow-lg transition-shadow cursor-pointer border-dashed border-2 border-gray-300 hover:border-blue-400"
+            onClick={onNavigateToUpload}
+          >
+            <CardContent className="p-0">
+              <div className="h-48 flex items-center justify-center">
+                <div className="text-center text-gray-400">
+                  <Plus className="w-12 h-12 mx-auto mb-2" />
+                  <p className="text-sm font-medium">Add New Document</p>
+                </div>
+              </div>
+              <div className="p-4">
+                <h3 className="font-semibold text-gray-600 text-sm">
+                  Upload Resume or Cover Letter
+                </h3>
+                <p className="text-xs text-gray-400 mt-1">
+                  PDF, DOC, or DOCX files
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
   );
 }
