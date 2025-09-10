@@ -4,10 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Upload, FileText, Save, X, Edit, Check, Plus, Trash2 } from 'lucide-react';
-import StructuredResumePreview from '@/components/structured-resume-preview';
+import { Upload, FileText, Save, X, Edit, Check, Plus, Trash2, Sparkles, GraduationCap, FolderOpen, Briefcase } from 'lucide-react';
+import StructuredResumePreview from '@/components/structured-resume-preview'; 
 import { GooglePlacesAutocomplete } from '@/components/AutoComplete';
 import SimpleDatePicker from '@/components/ui/UnifiedDatePicker';
+import { toast } from '@/hooks/use-toast'; 
+import CoverLetterDraft from '@/components/pdf/CoverLetterDraft';
+
 
 interface ParsedResume {
   summary: string;
@@ -61,11 +64,13 @@ interface ParsedResume {
 interface ResumeUploadProps {
   onResumeUploaded?: (resumeData: ParsedResume | null) => void;
   currentResume?: ParsedResume | null;
+  onNavigateToDocs?: () => void;
 }
 
 export default function ResumeUpload({
   onResumeUploaded,
   currentResume,
+  onNavigateToDocs,
 }: ResumeUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
@@ -76,6 +81,7 @@ export default function ResumeUpload({
   const [isDragOver, setIsDragOver] = useState(false);
   const [showTextInput, setShowTextInput] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [improvingIndex, setImprovingIndex] = useState<number | null>(null);
 
   // Load cached resume on mount
   useEffect(() => {
@@ -129,7 +135,7 @@ export default function ResumeUpload({
       }
 
       const result = await response.json();
-      
+
       if (result.success && result.data) {
         setParsedData(result.data);
         setEditableData(result.data);
@@ -163,7 +169,7 @@ export default function ResumeUpload({
       }
 
       const result = await response.json();
-      
+
       if (result.success && result.data) {
         setParsedData(result.data);
         setEditableData(result.data);
@@ -205,7 +211,7 @@ export default function ResumeUpload({
     if (editableData) {
       setParsedData(editableData);
       localStorage.setItem('parsedResumeData', JSON.stringify(editableData));
-      onResumeUploaded?.(editableData);
+    onResumeUploaded?.(editableData);
       setIsEditing(false);
     }
   };
@@ -223,6 +229,67 @@ export default function ResumeUpload({
     setIsEditing(false);
     localStorage.removeItem('parsedResumeData');
     onResumeUploaded?.(null);
+  };
+
+  const improveExperienceWithAI = async (index: number) => {
+    if (!editableData?.experience?.[index]) return;
+    
+    setImprovingIndex(index);
+    const experience = editableData.experience[index];
+    
+    try {
+      const response = await fetch('/api/resume/improve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          experience: {
+            company: experience.company,
+            role: experience.role,
+            description: experience.description,
+            duration: experience.duration
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('API Error:', errorData);
+        throw new Error(`HTTP ${response.status}: ${errorData}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success || !data.improvedDescription) {
+        throw new Error('Invalid response format');
+      }
+      
+      // Update the experience with AI-improved description
+      const newExperience = [...editableData.experience];
+      newExperience[index] = {
+        ...experience,
+        description: data.improvedDescription
+      };
+      
+      setEditableData({
+        ...editableData,
+        experience: newExperience
+      });
+
+      toast({
+        title: "Experience improved!",
+        description: "AI has enhanced your job description with better keywords and achievements.",
+      });
+
+    } catch (error) {
+      console.error('AI improvement failed:', error);
+      toast({
+        title: "Improvement failed",
+        description: error instanceof Error ? error.message : "Could not improve experience with AI. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setImprovingIndex(null);
+    }
   };
 
   // Loading state
@@ -250,10 +317,6 @@ export default function ResumeUpload({
             <div className="flex justify-between items-center">
               <CardTitle className="text-xl">Edit Resume</CardTitle>
               <div className="flex space-x-2">
-                <Button onClick={saveEdits} variant="default" size="sm">
-                  <Check className="w-4 h-4 mr-2" />
-                  Save
-                </Button>
                 <Button onClick={cancelEditing} variant="outline" size="sm">
                   <X className="w-4 h-4 mr-2" />
                   Cancel
@@ -264,46 +327,37 @@ export default function ResumeUpload({
           <CardContent>
             {/* Edit Form */}
             <div className="space-y-6">
-            {/* Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
+              {/* Summary */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold">Summary</h3>
                 <Textarea
                   value={editableData.summary || ''}
                   onChange={(e) => setEditableData({...editableData, summary: e.target.value})}
                   placeholder="Professional summary..."
-                  className="min-h-[100px]"
+                  className="resize-none w-full h-20 max-h-32 overflow-y-auto"
+                  rows={3}
                 />
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Skills */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Skills</CardTitle>
-              </CardHeader>
-              <CardContent>
+              {/* Skills */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold">Skills</h3>
                 <Textarea
                   value={editableData.skills?.join(', ') || ''}
                   onChange={(e) => setEditableData({
-                    ...editableData, 
+                    ...editableData,
                     skills: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
                   })}
                   placeholder="JavaScript, React, Node.js, etc."
-                  className="min-h-[80px]"
+                  className="resize-none w-full h-16 max-h-24 overflow-y-auto"
+                  rows={2}
                 />
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Contact */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Contact Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              {/* Contact */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Contact Information</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label>First Name</Label>
                     <Input
@@ -345,67 +399,70 @@ export default function ResumeUpload({
                     })}
                   />
                 </div>
-                      <div>
-                       <Label>Location</Label>
-                       <GooglePlacesAutocomplete
-                         value={editableData.contact?.location || ''}
-                         onChange={(value) => setEditableData({
-                           ...editableData,
-                           contact: {...editableData.contact, location: value}
-                         })}
-                         placeholder="Enter your location..."
-                       />
-                     </div>
-                </CardContent>
-             </Card>
+                <div>
+                  <Label>Location</Label>
+                  <GooglePlacesAutocomplete
+                    value={editableData.contact?.location || ''}
+                    onChange={(value) => setEditableData({
+                      ...editableData,
+                      contact: {...editableData.contact, location: value}
+                    })}
+                    placeholder="Enter your location..."
+                  />
+                </div>
+              </div>
 
-             {/* Experience */}
-             <Card>
-               <CardHeader>
-                 <CardTitle className="text-lg">Work Experience</CardTitle>
-               </CardHeader>
-               <CardContent>
-                 {editableData.experience?.map((exp, index) => (
-                   <div key={index} className="border rounded-lg p-4 mb-4 space-y-4">
-                     <div className="grid grid-cols-2 gap-4">
-                       <div>
-                         <Label>Company</Label>
-                         <Input
-                           value={exp.company || ''}
-                           onChange={(e) => {
-                             const newExp = [...editableData.experience];
-                             newExp[index] = { ...exp, company: e.target.value };
-                             setEditableData({ ...editableData, experience: newExp });
-                           }}
-                         />
-                       </div>
-                       <div>
-                         <Label>Role</Label>
-                         <Input
-                           value={exp.role || ''}
-                           onChange={(e) => {
-                             const newExp = [...editableData.experience];
-                             newExp[index] = { ...exp, role: e.target.value };
-                             setEditableData({ ...editableData, experience: newExp });
-                           }}
-                         />
-                       </div>
-                     </div>
-                                           <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>Start Date</Label>
-                          <SimpleDatePicker
-                            value={exp.startDate}
-                            onChange={(date: Date | undefined) => {
-                              const newExp = [...editableData.experience];
-                              newExp[index] = { ...exp, startDate: date };
-                              setEditableData({ ...editableData, experience: newExp });
-                            }}
-                            placeholder="Start date"
-                          />
-                        </div>
-                        <div>
-                          <Label>End Date</Label>
+              {/* Experience */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center">
+                    <Briefcase className="w-5 h-5 mr-2" />
+                    Work Experience
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {editableData.experience?.map((exp, index) => (
+                  <div key={index} className="border rounded-lg p-4 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Company</Label>
+                        <Input
+                          value={exp.company || ''}
+                          onChange={(e) => {
+                            const newExp = [...editableData.experience];
+                            newExp[index] = { ...exp, company: e.target.value };
+                            setEditableData({ ...editableData, experience: newExp });
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label>Role</Label>
+                        <Input
+                          value={exp.role || ''}
+                          onChange={(e) => {
+                            const newExp = [...editableData.experience];
+                            newExp[index] = { ...exp, role: e.target.value };
+                            setEditableData({ ...editableData, experience: newExp });
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Start Date</Label>
+                        <SimpleDatePicker
+                          value={exp.startDate}
+                          onChange={(date: Date | undefined) => {
+                            const newExp = [...editableData.experience];
+                            newExp[index] = { ...exp, startDate: date };
+                            setEditableData({ ...editableData, experience: newExp });
+                          }}
+                          placeholder="Start date"
+                        />
+                      </div>
+                      <div>
+                        <Label>End Date</Label>
+                        {!exp.isCurrentRole && (
                           <SimpleDatePicker
                             value={exp.endDate}
                             onChange={(date: Date | undefined) => {
@@ -415,86 +472,134 @@ export default function ResumeUpload({
                             }}
                             placeholder="End date (optional)"
                           />
-                        </div>
+                        )}
+                        {exp.isCurrentRole && (
+                          <div className="flex items-center space-x-2 h-10 px-3 border border-input bg-background rounded-md">
+                            <span className="text-sm text-muted-foreground">Present</span>
+                          </div>
+                        )}
                       </div>
-                                           <div>
-                        <Label>Location</Label>
-                        <GooglePlacesAutocomplete
-                          value={exp.location || ''}
-                          onChange={(value) => {
-                            const newExp = [...editableData.experience];
-                            newExp[index] = { ...exp, location: value };
-                            setEditableData({ ...editableData, experience: newExp });
-                          }}
-                          placeholder="Enter company location..."
-                        />
-                      </div>
-                     <div>
-                       <Label>Job Description</Label>
-                       <Textarea
-                         value={exp.description || ''}
-                         onChange={(e) => {
-                           const newExp = [...editableData.experience];
-                           newExp[index] = { ...exp, description: e.target.value };
-                           setEditableData({ ...editableData, experience: newExp });
-                         }}
-                         placeholder="• Led development of new features for mobile app
-• Managed team of 5 developers across 3 projects  
-• Improved application performance by 40%
-• Implemented CI/CD pipeline reducing deployment time by 60%"
-                         className="min-h-[120px]"
-                       />
-                     </div>
-                     <Button
-                       onClick={() => {
-                         const newExp = editableData.experience.filter((_, i) => i !== index);
-                         setEditableData({ ...editableData, experience: newExp });
-                       }}
-                       variant="outline"
-                       size="sm"
-                       className="text-red-600 hover:text-red-700"
-                     >
-                       <Trash2 className="w-4 h-4 mr-2" />
-                       Remove Experience
-                     </Button>
-                   </div>
-                 ))}
-                 <Button
-                   onClick={() => {
-                     const newExp = [...(editableData.experience || []), {
-                       company: '',
-                       role: '',
-                       duration: '',
-                       startDate: new Date(),
-                       endDate: undefined,
-                       isCurrentRole: false,
-                       location: '',
-                       description: '',
-                       achievements: [],
-                       responsibilities: [],
-                       keywords: []
-                     }];
-                     setEditableData({ ...editableData, experience: newExp });
-                   }}
-                   variant="outline"
-                   size="sm"
-                 >
-                   <Plus className="w-4 h-4 mr-2" />
-                   Add Experience
-                 </Button>
-               </CardContent>
-             </Card>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`current-role-${index}`}
+                        checked={exp.isCurrentRole || false}
+                        onChange={(e) => {
+                          const newExp = [...editableData.experience];
+                          newExp[index] = {
+                            ...exp,
+                            isCurrentRole: e.target.checked,
+                            endDate: e.target.checked ? undefined : exp.endDate
+                          };
+                          setEditableData({ ...editableData, experience: newExp });
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <Label htmlFor={`current-role-${index}`} className="text-sm font-medium">
+                        Current Role
+                      </Label>
+                    </div>
+                    <div>
+                      <Label>Location</Label>
+                      <GooglePlacesAutocomplete
+                        value={exp.location || ''}
+                        onChange={(value) => {
+                          const newExp = [...editableData.experience];
+                          newExp[index] = { ...exp, location: value };
+                          setEditableData({ ...editableData, experience: newExp });
+                        }}
+                        placeholder="Enter company location..."
+                      />
+                    </div>
+                    <div>
+                      <Label>Job Description</Label>
+                      <Textarea
+                        value={exp.description || ''}
+                        onChange={(e) => {
+                          const newExp = [...editableData.experience];
+                          newExp[index] = { ...exp, description: e.target.value };
+                          setEditableData({ ...editableData, experience: newExp });
+                        }}
+                        placeholder="• Led development of new features for mobile app&#10;• Managed team of 5 developers across 3 projects&#10;• Improved application performance by 40%&#10;• Implemented CI/CD pipeline reducing deployment time by 60%"
+                        className="resize-none w-full h-20 max-h-32 overflow-y-auto"
+                        rows={3}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        onClick={() => {
+                          const newExp = editableData.experience.filter((_, i) => i !== index);
+                          setEditableData({ ...editableData, experience: newExp });
+                        }}
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Remove Experience
+                      </Button>
+                      <Button
+                        onClick={() => improveExperienceWithAI(index)}
+                        variant="outline"
+                        size="sm"
+                        className="text-blue-600 hover:text-blue-700"
+                        disabled={improvingIndex === index}
+                      >
+                        {improvingIndex === index ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                            Improving...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Improve with AI
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  onClick={() => {
+                    const newExp = [...(editableData.experience || []), {
+                      company: '',
+                      role: '',
+                      duration: '',
+                      startDate: new Date(),
+                      endDate: undefined,
+                      isCurrentRole: false,
+                      location: '',
+                      description: '',
+                      achievements: [],
+                      responsibilities: [],
+                      keywords: []
+                    }];
+                    setEditableData({ ...editableData, experience: newExp });
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Experience
+                </Button>
+                </CardContent>
+              </Card>
 
-             {/* Education */}
+                {/* Education */}
              <Card>
                <CardHeader>
-                 <CardTitle className="text-lg">Education</CardTitle>
+                 <CardTitle className="text-lg flex items-center">
+                   <GraduationCap className="w-5 h-5 mr-2" />
+                   Education
+                 </CardTitle>
                </CardHeader>
                <CardContent>
-                 {editableData.education?.map((edu, index) => (
+                  {editableData.education?.map((edu, index) => (
                    <div key={index} className="border rounded-lg p-4 mb-4 space-y-4">
                      <div className="grid grid-cols-2 gap-4">
-                       <div>
+                        <div>
                          <Label>Institution</Label>
                          <Input
                            value={edu.institution || ''}
@@ -504,8 +609,8 @@ export default function ResumeUpload({
                              setEditableData({ ...editableData, education: newEdu });
                            }}
                          />
-                       </div>
-                       <div>
+                        </div>
+                        <div>
                          <Label>Degree</Label>
                          <Input
                            value={edu.degree || ''}
@@ -514,11 +619,11 @@ export default function ResumeUpload({
                              newEdu[index] = { ...edu, degree: e.target.value };
                              setEditableData({ ...editableData, education: newEdu });
                            }}
-                         />
-                       </div>
+                          />
+                        </div>
                      </div>
                      <div className="grid grid-cols-2 gap-4">
-                       <div>
+                        <div>
                          <Label>Field of Study</Label>
                          <Input
                            value={edu.field || ''}
@@ -527,8 +632,8 @@ export default function ResumeUpload({
                              newEdu[index] = { ...edu, field: e.target.value };
                              setEditableData({ ...editableData, education: newEdu });
                            }}
-                         />
-                       </div>
+                          />
+                        </div>
                        <div>
                          <Label>Year</Label>
                          <Input
@@ -539,7 +644,7 @@ export default function ResumeUpload({
                              setEditableData({ ...editableData, education: newEdu });
                            }}
                          />
-                       </div>
+                      </div>
                      </div>
                                            <div>
                         <Label>Location</Label>
@@ -553,21 +658,21 @@ export default function ResumeUpload({
                           placeholder="Enter institution location..."
                         />
                       </div>
-                     <Button
-                       onClick={() => {
+                        <Button
+                          onClick={() => {
                          const newEdu = editableData.education.filter((_, i) => i !== index);
                          setEditableData({ ...editableData, education: newEdu });
-                       }}
-                       variant="outline"
-                       size="sm"
+                          }}
+                          variant="outline"
+                          size="sm"
                        className="text-red-600 hover:text-red-700"
-                     >
+                        >
                        <Trash2 className="w-4 h-4 mr-2" />
                        Remove Education
-                     </Button>
-                   </div>
+                        </Button>
+                      </div>
                  ))}
-                 <Button
+                        <Button
                    onClick={() => {
                      const newEdu = [...(editableData.education || []), {
                        institution: '',
@@ -581,14 +686,26 @@ export default function ResumeUpload({
                      }];
                      setEditableData({ ...editableData, education: newEdu });
                    }}
-                   variant="outline"
-                   size="sm"
-                 >
+                          variant="outline"
+                          size="sm"
+                        >
                    <Plus className="w-4 h-4 mr-2" />
                    Add Education
-                 </Button>
+                        </Button>
                </CardContent>
              </Card>
+           </div>
+           
+           {/* Save Button at Bottom */}
+           <div className="flex justify-end pt-6 border-t">
+             <Button 
+               onClick={saveEdits} 
+               size="lg"
+               className="bg-green-600 hover:bg-green-700 text-white"
+             >
+               <Check className="w-4 h-4 mr-2" />
+               Save Changes
+             </Button>
            </div>
            </CardContent>
          </Card>
@@ -603,31 +720,31 @@ export default function ResumeUpload({
             <Button onClick={startEditing} variant="outline" size="sm">
               <Edit className="w-4 h-4 mr-2" />
               Edit
-            </Button>
+                        </Button>
             <Button onClick={clearResume} variant="outline" size="sm">
               <X className="w-4 h-4 mr-2" />
               Clear
-            </Button>
-          </div>
-        </div>
+                        </Button>
+                      </div>
+                    </div>
         <StructuredResumePreview 
           resumeData={parsedData} 
           onImprove={handleResumeImprove}
         />
-      </div>
+                  </div>
     );
   }
 
   // Upload interface
   return (
-    <Card>
+    <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
           <FileText className="w-5 h-5 text-blue-500" />
           <span>Upload Resume</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 p-6">
         {/* File Upload */}
         <div
           className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
@@ -645,7 +762,7 @@ export default function ResumeUpload({
           <div className="space-y-4">
             <div className="w-16 h-16 mx-auto bg-blue-100 rounded-full flex items-center justify-center">
               <Upload className="w-8 h-8 text-blue-600" />
-            </div>
+                        </div>
             <div>
               <h3 className="text-lg font-medium text-gray-900">
                 Upload your resume
@@ -653,7 +770,7 @@ export default function ResumeUpload({
               <p className="text-sm text-gray-500">
                 Drag and drop your PDF or DOCX file here, or click to browse
               </p>
-            </div>
+                      </div>
             <input
               type="file"
               id="resume-file"
@@ -661,49 +778,72 @@ export default function ResumeUpload({
               accept=".pdf,.docx"
               onChange={handleFileSelect}
             />
-            <Button
+                      <Button
               onClick={() => document.getElementById("resume-file")?.click()}
               className="mx-auto"
-            >
+                      >
               <Upload className="w-4 h-4 mr-2" />
               Choose File
+                      </Button>
+                    </div>
+                        </div>
+
+        {/* Additional Options */}
+        <div className="text-center space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              onClick={() => setShowTextInput(!showTextInput)}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Edit className="w-4 h-4" />
+              {showTextInput ? "Hide Manual Entry" : "Manual Entry"}
             </Button>
+            
+            <Button
+              onClick={() => {/* TODO: Add cover letter modal */}}
+              variant="outline"
+              className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 border-blue-200"
+            >
+              <FileText className="w-4 h-4" />
+              Draft Cover Letter
+            </Button>
+            
+            {onNavigateToDocs && (
+              <Button
+                variant="outline"
+                className="flex items-center gap-2 bg-gradient-to-r from-green-50 to-blue-50 hover:from-green-100 hover:to-blue-100 border-green-200"
+                onClick={onNavigateToDocs}
+              >
+                <FolderOpen className="w-4 h-4" />
+                Go to Documents
+              </Button>
+            )}
           </div>
-        </div>
-
-        {/* Manual Entry */}
-        <div className="text-center">
-          <p className="text-sm text-gray-500 mb-4">
-            Or manually enter your resume information
+          
+          <p className="text-sm text-gray-500">
+            Upload your resume or enter information manually, then optionally create a personalized cover letter
           </p>
-          <Button
-            onClick={() => setShowTextInput(!showTextInput)}
-            variant="outline"
-            size="sm"
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            Manual Entry
-          </Button>
         </div>
-
         {showTextInput && (
           <div className="space-y-4">
             <Label htmlFor="resume-text">Paste your resume text</Label>
-            <Textarea
+              <Textarea
               id="resume-text"
               placeholder="Paste your resume content here..."
               value={resumeText}
               onChange={(e) => setResumeText(e.target.value)}
-              className="min-h-[200px]"
+              className="resize-none w-full h-32 max-h-96 overflow-y-auto border rounded-md p-3"
+              rows={8}
             />
-            <Button
+              <Button
               onClick={handleTextSubmit}
               disabled={!resumeText.trim()}
             >
               <FileText className="w-4 h-4 mr-2" />
               Process Resume
-            </Button>
-          </div>
+              </Button>
+            </div>
         )}
       </CardContent>
     </Card>
