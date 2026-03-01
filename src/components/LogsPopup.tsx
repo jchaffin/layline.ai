@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useState } from "react";
 import { useEvent } from "@/app/contexts/EventContext";
-import { LoggedEvent } from "@/app/types";
+import { LoggedEvent } from "@/types";
 
 export interface LogsPopupProps {
   isVisible: boolean;

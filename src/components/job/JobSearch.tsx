@@ -38,6 +38,10 @@ import {
   Settings,
   Plus,
   Menu,
+  ChevronDown,
+  ChevronUp,
+  Target,
+  Sliders,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -93,6 +97,12 @@ export default function JobSearch({ onJobSelect }: JobSearchProps) {
   const [sortBy, setSortBy] = useState<'relevance' | 'date' | 'company' | 'salary'>('relevance');
   const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [salaryMin, setSalaryMin] = useState("");
+  const [salaryMax, setSalaryMax] = useState("");
+  const [datePosted, setDatePosted] = useState("");
+  const [companySize, setCompanySize] = useState("");
+  const [experienceLevel, setExperienceLevel] = useState("");
 
   // Auto-search on component mount with default values
   useEffect(() => {
@@ -121,6 +131,13 @@ export default function JobSearch({ onJobSelect }: JobSearchProps) {
         jobtype: jobType === "all" ? "" : jobType,
         limit: "20",
       });
+
+      // Add advanced options if specified
+      if (salaryMin) params.append("salary_min", salaryMin);
+      if (salaryMax) params.append("salary_max", salaryMax);
+      if (datePosted) params.append("date_posted", datePosted);
+      if (experienceLevel) params.append("experience_level", experienceLevel);
+      if (companySize) params.append("company_size", companySize);
 
       const response = await fetch(`/api/jobs/search?${params}`);
 
@@ -332,6 +349,101 @@ export default function JobSearch({ onJobSelect }: JobSearchProps) {
               </Select>
             </div>
           </div>
+
+          {/* Advanced Options Toggle */}
+          <div className="border-t pt-4">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+              className="w-full justify-between text-sm font-medium text-gray-600 hover:text-gray-900"
+            >
+              <div className="flex items-center">
+                <Sliders className="w-4 h-4 mr-2" />
+                Advanced Options
+              </div>
+              {showAdvancedOptions ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
+
+          {/* Advanced Options Panel */}
+          {showAdvancedOptions && (
+            <div className="space-y-4 border-t pt-4 bg-gray-50 p-4 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Salary Range</label>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      placeholder="Min ($)"
+                      value={salaryMin}
+                      onChange={(e) => setSalaryMin(e.target.value)}
+                      className="w-full"
+                    />
+                    <span className="text-gray-500">to</span>
+                    <Input
+                      placeholder="Max ($)"
+                      value={salaryMax}
+                      onChange={(e) => setSalaryMax(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Date Posted</label>
+                  <Select value={datePosted} onValueChange={setDatePosted}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Any time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Any time</SelectItem>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="3days">Last 3 days</SelectItem>
+                      <SelectItem value="week">Last week</SelectItem>
+                      <SelectItem value="month">Last month</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Experience Level</label>
+                  <Select value={experienceLevel} onValueChange={setExperienceLevel}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Any level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Any level</SelectItem>
+                      <SelectItem value="entry">Entry level</SelectItem>
+                      <SelectItem value="mid">Mid level</SelectItem>
+                      <SelectItem value="senior">Senior level</SelectItem>
+                      <SelectItem value="lead">Lead/Principal</SelectItem>
+                      <SelectItem value="executive">Executive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Company Size</label>
+                  <Select value={companySize} onValueChange={setCompanySize}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Any size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Any size</SelectItem>
+                      <SelectItem value="startup">Startup (1-50)</SelectItem>
+                      <SelectItem value="small">Small (51-200)</SelectItem>
+                      <SelectItem value="medium">Medium (201-1000)</SelectItem>
+                      <SelectItem value="large">Large (1000+)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
 
           <Button
             onClick={handleSearch}

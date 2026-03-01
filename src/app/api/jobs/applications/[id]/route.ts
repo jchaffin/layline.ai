@@ -10,10 +10,10 @@ const updateStatusSchema = z.object({
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     
     console.log('PATCH request received:', { id, body, totalApplications: jobApplications.length });
@@ -45,9 +45,9 @@ export async function PATCH(
     return NextResponse.json(updatedApp);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('Validation error:', error.errors);
+      console.error('Validation error:', error.issues);
       return NextResponse.json(
-        { error: 'Invalid input', details: error.errors },
+        { error: 'Invalid input', details: error.issues },
         { status: 400 }
       );
     }
@@ -62,10 +62,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     
     const applicationIndex = jobApplications.findIndex(app => app.id === id);
     

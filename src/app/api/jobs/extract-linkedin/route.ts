@@ -116,7 +116,7 @@ async function scrapeLinkedInJob(url: string, jobId: string) {
     console.error('Error in scrapeLinkedInJob:', error);
     return {
       success: false,
-      error: `Scraping failed: ${error.message}`
+      error: `Scraping failed: ${error instanceof Error ? error.message : String(error)}`
     };
   }
 }

@@ -47,7 +47,8 @@ export default function ChatBot({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Web Speech API types not in DOM lib
+  const recognitionRef = useRef<any>(null);
   const synthesisRef = useRef<SpeechSynthesis | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -116,8 +117,9 @@ export default function ChatBot({
       // Initialize speech recognition
       if ("webkitSpeechRecognition" in window) {
         const SpeechRecognition =
-          window.webkitSpeechRecognition || window.SpeechRecognition;
-        recognitionRef.current = new SpeechRecognition();
+          (window as Window & { webkitSpeechRecognition?: new () => unknown; SpeechRecognition?: new () => unknown }).webkitSpeechRecognition ||
+          (window as Window & { SpeechRecognition?: new () => unknown }).SpeechRecognition;
+        if (SpeechRecognition) recognitionRef.current = new SpeechRecognition();
         recognitionRef.current.continuous = true;
         recognitionRef.current.interimResults = true;
         recognitionRef.current.lang = "en-US";
@@ -127,7 +129,7 @@ export default function ChatBot({
           setIsListening(true);
         };
 
-        recognitionRef.current.onresult = (event) => {
+        recognitionRef.current.onresult = (event: { resultIndex: number; results: { length: number; [i: number]: { isFinal: boolean; length: number; [j: number]: { transcript: string } } } }) => {
           let finalTranscript = "";
           let interimTranscript = "";
 
@@ -148,7 +150,7 @@ export default function ChatBot({
           }
         };
 
-        recognitionRef.current.onerror = (event) => {
+        recognitionRef.current.onerror = (event: { error: string }) => {
           console.error("Speech recognition error:", event.error);
           setIsRecording(false);
           setIsListening(false);
@@ -837,4 +839,4 @@ Guidelines:
       </div>
     </div>
   );
-}L
+}

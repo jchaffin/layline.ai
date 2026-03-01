@@ -109,24 +109,24 @@ async function fetchDocuments(prefix: string, limit: number, type: string) {
             const body = await objectResponse.Body?.transformToString();
             
             // Only parse JSON if it looks like JSON
-            let data = {};
+            let data: Record<string, unknown> = {};
             if (body && body.trim().startsWith('{')) {
               try {
-                data = JSON.parse(body);
+                data = JSON.parse(body) as Record<string, unknown>;
               } catch (parseError) {
                 console.warn('JSON parse error for', object.Key, parseError);
                 data = {};
               }
             }
-            
+
             return {
               ...document,
               metadata: {
-                originalFileName: data.fileName || data.originalFileName,
-                companyName: data.companyName,
-                roleTitle: data.roleTitle,
-                uploadedAt: data.uploadedAt,
-                createdAt: data.createdAt,
+                originalFileName: (data.fileName ?? data.originalFileName) as string | undefined,
+                companyName: data.companyName as string | undefined,
+                roleTitle: data.roleTitle as string | undefined,
+                uploadedAt: data.uploadedAt as string | undefined,
+                createdAt: data.createdAt as string | undefined,
               },
             };
           } catch (error) {

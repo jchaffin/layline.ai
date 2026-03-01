@@ -58,66 +58,30 @@ async function searchJobs(params: {
 }) {
   const { query, location, radius, jobType, limit } = params;
 
-  console.log('🔍 SEARCHING ALL JOB POSTINGS ACROSS MULTIPLE SOURCES...');
+  console.log('🔍 PROGRESSIVE JOB SEARCH - FAST INITIAL RESULTS...');
   
-  // Try multiple job search approaches and collect ALL jobs
-  let allJobs = [];
-
-  // 1. Use RapidAPI JSearch - MAXIMUM pages for complete coverage
+  // PHASE 1: Get quick initial results (return immediately)
+  let initialJobs = [];
+  
+  // 1. Fast JSearch API call (just 1 page for immediate results)
   try {
-    if (!process.env.RAPIDAPI_KEY) {
-      throw new Error('RAPIDAPI_KEY not found in environment variables');
+    if (process.env.RAPIDAPI_KEY) {
+      const quickJobs = await searchWithJSearchAPI({...params, limit: 20}); // Just 20 jobs for speed
+      initialJobs.push(...quickJobs);
+      console.log(`⚡ Quick JSearch: ${quickJobs.length} jobs`);
     }
-    
-    const rapidJobs = await searchWithJSearchAPI({...params, limit: 200}); // Fetch up to 200 jobs (10 pages)
-    allJobs.push(...rapidJobs);
-    
-    console.log(`✅ JSearch: ${rapidJobs.length} jobs`);
   } catch (error) {
-    console.error("JSearch API failed:", error);
-    throw error;
+    console.error("Quick JSearch failed:", error);
   }
 
-  // 2. Add LinkedIn job search using MCP server
-  try {
-    const linkedinJobs = await searchLinkedInJobs({...params, limit: 100}); // Fetch up to 100 LinkedIn jobs
-    allJobs.push(...linkedinJobs);
-    
-    console.log(`✅ LinkedIn: ${linkedinJobs.length} jobs`);
-  } catch (error) {
-    console.error("LinkedIn MCP search failed:", error);
-    // Don't fail the entire search if LinkedIn fails
-  }
-
-  // 3. Search with KEYWORD VARIATIONS to find more jobs
-  const searchVariations = generateSearchVariations(query);
-  console.log(`🔄 Searching ${searchVariations.length} keyword variations...`);
+  // Return initial results immediately, then continue loading in background
+  const initialRanked = rankJobsByMatch(initialJobs, params);
   
-  for (const variation of searchVariations) {
-    try {
-      const variantJobs = await searchWithJSearchAPI({
-        ...params, 
-        query: variation,
-        limit: 50 // Smaller limit per variation
-      });
-      allJobs.push(...variantJobs);
-      console.log(`   "${variation}": ${variantJobs.length} additional jobs`);
-    } catch (error) {
-      console.error(`Error searching variation "${variation}":`, error);
-    }
-  }
-
-  // 4. Remove duplicates to avoid showing same job multiple times
-  const uniqueJobs = removeDuplicateJobs(allJobs);
+  // For now, just return the initial batch
+  // TODO: Implement streaming/progressive loading on frontend
+  console.log(`📊 INITIAL RESULTS: ${initialRanked.length} jobs (more loading...)`);
   
-  console.log(`📊 TOTAL COVERAGE: ${uniqueJobs.length} unique jobs from ${allJobs.length} total results`);
-
-  // 5. RANK ALL jobs by match score using AI agent
-  const rankedJobs = rankJobsByMatch(uniqueJobs, params);
-  
-  // Return MORE top matches (increase from 25 to 50+)
-  const finalLimit = Math.max(limit, 50); // At least 50 results
-  return rankedJobs.slice(0, finalLimit);
+  return initialRanked.slice(0, Math.min(limit, 20));
 }
 
 async function searchWithJSearchAPI(params: {
@@ -126,6 +90,7 @@ async function searchWithJSearchAPI(params: {
   radius: number;
   jobType: string;
   limit: number;
+  page?: number;
 }) {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey) {
@@ -133,14 +98,14 @@ async function searchWithJSearchAPI(params: {
   }
 
   // Build JSearch API parameters to fetch MORE jobs for better matching
-  const queryWithLocation = params.location && params.location.trim() !== '' 
+  const queryWithLocation = params.location && params.location.trim() !== ''
     ? `${params.query} in ${params.location}`
     : params.query;
-    
+
   const searchParams = new URLSearchParams({
     query: queryWithLocation,
-    page: '1',
-        num_pages: '10', // Get MORE pages for comprehensive search
+    page: String(params.page ?? 1),
+        num_pages: '1', // Single page for fast initial response
     date_posted: 'all',
     remote_jobs_only: 'false',
     employment_types: params.jobType.toUpperCase() || 'FULLTIME',
@@ -323,7 +288,7 @@ function parseLinkedInSearchResults(html: string, limit: number) {
       
       if (titleMatch && companyMatch) {
         const job = {
-          id: `linkedin-${jobId}`,
+          id: `linkedin-${jobId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           title: cleanText(titleMatch[1]),
           company: cleanText(companyMatch[1]),
           location: locationMatch ? cleanText(locationMatch[1]) : 'Location not specified',
@@ -346,7 +311,7 @@ function parseLinkedInSearchResults(html: string, limit: number) {
     if (jobs.length === 0) {
       console.log('No jobs parsed from LinkedIn HTML, creating fallback jobs');
       jobs.push({
-        id: 'linkedin-fallback-1',
+        id: `linkedin-fallback-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         title: `LinkedIn Job Professional`,
         company: 'LinkedIn Network Company',
         location: 'Multiple Locations',
@@ -612,20 +577,89 @@ function extractJobTags(title: string): string[] {
 
 export async function POST(request: NextRequest) {
   try {
-    const { searchParams } = await request.json();
+    const { action, searchParams } = await request.json();
 
-    // Save search preferences or handle job application
-    // This could integrate with the job tracking system
+    if (action === 'load-more') {
+      // Load additional jobs in the background
+      const jobs = await searchMoreJobs(searchParams);
+      
+      return NextResponse.json({
+        success: true,
+        jobs,
+        total: jobs.length,
+      });
+    }
 
+    // Default: Save search preferences
     return NextResponse.json({
       success: true,
       message: "Search preferences saved",
     });
   } catch (error) {
-    console.error("Save search error:", error);
+    console.error("POST search error:", error);
     return NextResponse.json(
-      { error: "Failed to save search" },
+      { error: "Failed to process request" },
       { status: 500 },
     );
   }
+}
+
+async function searchMoreJobs(params: {
+  query: string;
+  location: string;
+  radius: number;
+  jobType: string;
+  limit: number;
+}) {
+  console.log('🔄 LOADING MORE JOBS IN BACKGROUND...');
+  
+  let moreJobs = [];
+
+  // 1. Get more pages from JSearch
+  try {
+    if (process.env.RAPIDAPI_KEY) {
+      const additionalJobs = await searchWithJSearchAPI({
+        ...params, 
+        limit: 50,
+        page: 2 // Get page 2 for more results
+      });
+      moreJobs.push(...additionalJobs);
+      console.log(`📄 Additional JSearch: ${additionalJobs.length} jobs`);
+    }
+  } catch (error) {
+    console.error("Additional JSearch failed:", error);
+  }
+
+  // 2. Add LinkedIn jobs
+  try {
+    const linkedinJobs = await searchLinkedInJobs({...params, limit: 25});
+    moreJobs.push(...linkedinJobs);
+    console.log(`🔗 LinkedIn: ${linkedinJobs.length} jobs`);
+  } catch (error) {
+    console.error("LinkedIn search failed:", error);
+  }
+
+  // 3. Add keyword variations
+  try {
+    const searchVariations = generateSearchVariations(params.query);
+    for (const variation of searchVariations.slice(0, 2)) { // Just 2 variations
+      const variantJobs = await searchWithJSearchAPI({
+        ...params, 
+        query: variation,
+        limit: 25
+      });
+      moreJobs.push(...variantJobs);
+      console.log(`🔍 "${variation}": ${variantJobs.length} jobs`);
+    }
+  } catch (error) {
+    console.error("Variation search failed:", error);
+  }
+
+  // Remove duplicates and rank
+  const uniqueJobs = removeDuplicateJobs(moreJobs);
+  const rankedJobs = rankJobsByMatch(uniqueJobs, params);
+  
+  console.log(`📊 ADDITIONAL RESULTS: ${rankedJobs.length} more jobs`);
+  
+  return rankedJobs.slice(0, params.limit || 50);
 }

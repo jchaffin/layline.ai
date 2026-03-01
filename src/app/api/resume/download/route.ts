@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const pdf = generateResumePDFWithJSPDF(resumeData);
     const fileName = `${resumeData.personalInfo?.name || resumeData.contact?.name || 'resume'}.pdf`;
 
-    return new NextResponse(pdf, {
+    return new NextResponse(pdf as BodyInit, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -405,7 +405,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Return PDF as download
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(pdfBuffer as BodyInit, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

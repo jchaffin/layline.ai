@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { institutions } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
+import { prisma } from '@/lib/db';
 
 export async function GET() {
   try {
-    const allInstitutions = await db
-      .select()
-      .from(institutions)
-      .where(eq(institutions.isActive, true))
-      .orderBy(institutions.type, institutions.name);
+    const allInstitutions = await prisma.institution.findMany({
+      where: { isActive: true },
+      orderBy: [{ type: 'asc' }, { name: 'asc' }],
+    });
 
     return NextResponse.json({ institutions: allInstitutions });
   } catch (error) {
@@ -32,12 +29,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const newInstitution = await db
-      .insert(institutions)
-      .values({ name, type, location })
-      .returning();
+    const newInstitution = await prisma.institution.create({
+      data: { name, type, location: location ?? undefined },
+    });
 
-    return NextResponse.json({ institution: newInstitution[0] });
+    return NextResponse.json({ institution: newInstitution });
   } catch (error) {
     console.error('Error creating institution:', error);
     return NextResponse.json(

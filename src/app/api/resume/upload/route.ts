@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import mammoth from "mammoth";
-import pdfParse from "pdf-parse";
+import pdfParse from "@jchaffin/pdf-parse";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const openai = new OpenAI({

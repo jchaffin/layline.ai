@@ -62,8 +62,8 @@ export async function GET(request: NextRequest) {
       }
 
       const body = await response.Body.transformToByteArray();
-      
-      return new NextResponse(body, {
+
+      return new NextResponse(body as BufferSource, {
         headers: {
           'Content-Type': response.ContentType || 'application/octet-stream',
           'Content-Disposition': `attachment; filename="${key.split('/').pop()}"`,

@@ -25,9 +25,9 @@ export async function POST(request: NextRequest) {
 
     const resumeContext = resumeData ? `
       Candidate Background:
-      - Experience: ${resumeData.experience?.map(exp => `${exp.title} at ${exp.company}`).join(', ') || 'Not specified'}
+      - Experience: ${resumeData.experience?.map((exp: { title?: string; company?: string }) => `${exp.title} at ${exp.company}`).join(', ') || 'Not specified'}
       - Skills: ${resumeData.skills?.technical?.join(', ') || 'Not specified'}
-      - Education: ${resumeData.education?.map(edu => `${edu.degree} from ${edu.institution}`).join(', ') || 'Not specified'}
+      - Education: ${resumeData.education?.map((edu: { degree?: string; institution?: string }) => `${edu.degree} from ${edu.institution}`).join(', ') || 'Not specified'}
     ` : '';
 
     const jobContext = jobData ? `

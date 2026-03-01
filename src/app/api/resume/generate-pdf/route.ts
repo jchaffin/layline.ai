@@ -487,7 +487,7 @@ export async function POST(req: NextRequest) {
     
     await browser.close();
     
-    return new Response(pdf, {
+    return new Response(pdf as BodyInit, {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": "inline; filename=resume.pdf",

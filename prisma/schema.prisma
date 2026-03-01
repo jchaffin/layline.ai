@@ -1,0 +1,170 @@
+// NextAuth / Auth.js required models (table names match existing DB)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String
+  emailVerified DateTime? @map("emailVerified")
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  resumes       Resume[]
+  jobApplications JobApplication[]
+
+  @@map("user")
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String  @map("providerAccountId")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+  @@map("account")
+}
+
+model Session {
+  sessionToken String   @id @map("sessionToken")
+  userId       String   @map("userId")
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+  @@map("verificationToken")
+}
+
+// App models
+model Resume {
+  id          String   @id @default(dbgenerated("gen_random_uuid()"))
+  userId      String?  @map("user_id")
+  fileName    String   @map("file_name")
+  fileContent String   @map("file_content") @db.Text
+  tags        String[] @default([])
+  industry    String?
+  jobLevel    String?  @map("job_level")
+  description String?  @db.Text
+  parsedData  Json?    @map("parsed_data")
+  isActive    String?  @map("is_active") @default("true")
+  createdAt   DateTime? @map("created_at") @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("resumes")
+}
+
+model InterviewSession {
+  id                String   @id @default(dbgenerated("gen_random_uuid()"))
+  userId            String?  @map("user_id")
+  sessionName       String   @map("session_name")
+  startTime         DateTime? @map("start_time") @default(now())
+  endTime           DateTime? @map("end_time")
+  transcription     Json[]   @default([])
+  suggestions       Json[]   @default([])
+  jobDescription    String?  @map("job_description") @db.Text
+  jobUrl            String?  @map("job_url")
+  companyName       String?  @map("company_name")
+  roleTitle         String?  @map("role_title")
+  interviewType     String?  @map("interview_type")
+  customInstructions String? @map("custom_instructions") @db.Text
+  skillFocus        String[] @map("skill_focus")
+  resumeId          String?  @map("resume_id")
+  status            String?  @default("setup")
+
+  @@map("interview_sessions")
+}
+
+model PrepSession {
+  id           String   @id @default(dbgenerated("gen_random_uuid()"))
+  userId       String?  @map("user_id")
+  interviewId  String?  @map("interview_id")
+  conversation Json[]   @default([])
+  insights     Json?
+  status       String?  @default("active")
+  createdAt    DateTime? @map("created_at") @default(now())
+  updatedAt    DateTime? @map("updated_at") @default(now())
+
+  @@map("prep_sessions")
+}
+
+model JobDescription {
+  id          String   @id @default(dbgenerated("gen_random_uuid()"))
+  description String   @db.Text
+  analysis    Json?
+  createdAt   DateTime? @map("created_at") @default(now())
+
+  @@map("job_descriptions")
+}
+
+model Degree {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  level     String
+  isActive  Boolean? @map("is_active") @default(true)
+  createdAt DateTime? @map("created_at") @default(now())
+
+  @@map("degrees")
+}
+
+model Institution {
+  id               Int      @id @default(autoincrement())
+  name             String   @unique
+  type             String
+  location         String?  @db.Text
+  formatted_address String?  @map("formatted_address") @db.Text
+  latitude         Float?
+  longitude        Float?
+  city             String?
+  state            String?
+  country          String?
+  place_id         String?  @map("place_id")
+  isActive         Boolean? @map("is_active") @default(true)
+  createdAt        DateTime? @map("created_at") @default(now())
+
+  @@map("institutions")
+}
+
+model JobApplication {
+  id          String    @id @default(dbgenerated("gen_random_uuid()"))
+  userId      String?   @map("user_id")
+  jobTitle    String    @map("job_title")
+  company     String
+  jobUrl      String    @map("job_url")
+  status      String    @default("applied")
+  appliedDate DateTime? @map("applied_date") @default(now())
+  lastUpdated DateTime? @map("last_updated") @default(now())
+  notes       String?   @db.Text
+  location    String?
+  salaryRange String?   @map("salary_range")
+  createdAt   DateTime? @map("created_at") @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("job_applications")
+}

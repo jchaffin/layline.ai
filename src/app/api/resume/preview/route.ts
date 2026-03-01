@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
     // Generate PDF using jsPDF
     const pdf = generateResumePDFWithJSPDF(resumeData);
 
-    return new NextResponse(pdf, {
+    return new NextResponse(pdf as BodyInit, {
       headers: {
         "Content-Type": "application/pdf",
         "Cache-Control": "no-cache",
@@ -338,7 +338,7 @@ function generateResumePDFWithJSPDF(resumeData: any): Buffer {
     const skillsPerColumn = 6;
     const columnWidth = contentWidth / 3;
 
-    skills.slice(0, 18).forEach((skill: string, index) => {
+    skills.slice(0, 18).forEach((skill: string, index: number) => {
       const columnIndex = Math.floor(index / skillsPerColumn);
       const rowIndex = index % skillsPerColumn;
       const xPos = margin + columnIndex * columnWidth;

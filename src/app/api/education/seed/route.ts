@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error seeding education data:', error);
     return NextResponse.json(
-      { error: 'Failed to seed education data', details: error.message },
+      { error: 'Failed to seed education data', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

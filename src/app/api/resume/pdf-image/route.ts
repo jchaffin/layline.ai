@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
 
     console.log('PDF converted to image successfully');
 
-    return new NextResponse(screenshot, {
+    return new NextResponse(screenshot as BodyInit, {
       headers: {
         'Content-Type': 'image/png',
         'Cache-Control': 'public, max-age=3600',
@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
     
     const buffer = canvasInstance.toBuffer('image/png');
     
-    return new NextResponse(buffer, {
+    return new NextResponse(buffer as BodyInit, {
       headers: {
         'Content-Type': 'image/png',
       },

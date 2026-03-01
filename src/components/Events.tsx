@@ -49,7 +49,7 @@ function Events({ isExpanded }: EventsProps) {
               const arrowInfo = getDirectionArrow(log.direction);
               const isError =
                 log.eventName.toLowerCase().includes("error") ||
-                log.eventData?.response?.status_details?.error != null;
+                (log.eventData as Record<string, unknown> & { response?: { status_details?: { error?: unknown } } })?.response?.status_details?.error != null;
 
               return (
                 <div

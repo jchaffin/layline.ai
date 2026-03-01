@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   Menu
 } from "lucide-react";
+import LoginButton from "@/components/auth/LoginButton";
 
 export type NavigationStep = 'dashboard' | 'documents' | 'jobs' | 'job-board' | 'insights' | 'prep' | 'interview' | 'live-interview' | 'mock-interview' | 'other';
 
@@ -150,20 +151,23 @@ export function Navigation({
         <div className={`border-b border-gray-200 ${isCollapsed ? 'p-3' : 'p-6'}`}>
           <div className="flex items-center justify-between">
             {!isCollapsed && (
-              <h1 className="text-xl font-semibold text-gray-900">Interview Assistant</h1>
+              <h1 className="text-xl font-semibold text-gray-900">JobLaunch</h1>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleToggle}
-              className="p-1 h-8 w-8"
-            >
-              {isCollapsed ? (
-                <ChevronRight className="w-4 h-4" />
-              ) : (
-                <ChevronLeft className="w-4 h-4" />
-              )}
-            </Button>
+            <div className="flex items-center space-x-2">
+              {!isCollapsed && <LoginButton />}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggle}
+                className="p-1 h-8 w-8"
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="w-4 h-4" />
+                ) : (
+                  <ChevronLeft className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
           </div>
           
           {/* Status indicators */}

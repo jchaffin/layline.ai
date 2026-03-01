@@ -158,13 +158,14 @@ export default function JobAnalysis({
           setJobDescription(job.description);
 
           // Save the analyzed job to the job tracker
-          await saveAnalyzedJob(data.analysis, job.description, job.url);
-
-          onJobAnalyzed({
-            description: job.description,
-            url: job.url,
-            analysis: data.analysis,
-          });
+          if (data.analysis) {
+            await saveAnalyzedJob(data.analysis, job.description, job.url);
+            onJobAnalyzed({
+              description: job.description,
+              url: job.url,
+              analysis: data.analysis,
+            });
+          }
 
           toast({
             title: "LinkedIn job extracted and analyzed successfully",

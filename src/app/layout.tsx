@@ -4,6 +4,8 @@ import './globals.css'
 import { QueryProvider } from '@/lib/query-provider'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
+import AuthSessionProvider from '@/components/providers/SessionProvider'
+import '@/lib/clear-legacy-data' // Clear legacy data on app load
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -27,17 +29,19 @@ export default function RootLayout({
         ></script>
       </head>
       <body className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <QueryProvider>
-            {children}
-            <Toaster />
-          </QueryProvider>
-        </ThemeProvider>
+        <AuthSessionProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <QueryProvider>
+              {children}
+              <Toaster />
+            </QueryProvider>
+          </ThemeProvider>
+        </AuthSessionProvider>
       </body>
     </html>
   )

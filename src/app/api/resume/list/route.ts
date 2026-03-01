@@ -47,24 +47,23 @@ export async function GET(request: NextRequest) {
           
           const objectResponse = await s3Client.send(getCommand);
           const body = await objectResponse.Body?.transformToString();
-          let data = {};
-          
+          let data: Record<string, unknown> = {};
+
           if (body) {
             try {
-              data = JSON.parse(body);
+              data = JSON.parse(body) as Record<string, unknown>;
             } catch (parseError) {
               console.error('Invalid JSON in S3 object:', object.Key, 'Content:', body?.substring(0, 100));
-              // Skip invalid JSON objects
               return null;
             }
           }
-          
+
           return {
             key: object.Key,
             size: object.Size,
             lastModified: object.LastModified,
-            companyName: data.companyName || 'Unknown',
-            roleTitle: data.roleTitle || 'Unknown Role',
+            companyName: (data.companyName as string) || 'Unknown',
+            roleTitle: (data.roleTitle as string) || 'Unknown Role',
             createdAt: data.createdAt,
             s3Url: `s3://${process.env.AWS_S3_BUCKET || 'interview-assistant-resumes'}/${object.Key}`,
             metadata: {
