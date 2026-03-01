@@ -1152,7 +1152,6 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
             data={section.data}
             onUpdate={readOnly ? () => {} : (data) => updateSection(section.id, data)}
             onDelete={readOnly ? () => {} : () => deleteSection(section.id)}
-            readOnly={readOnly}
           />
         );
       case 'summary':
@@ -1161,7 +1160,6 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
             data={section.data}
             onUpdate={readOnly ? () => {} : (data) => updateSection(section.id, data)}
             onDelete={readOnly ? () => {} : () => deleteSection(section.id)}
-            readOnly={readOnly}
           />
         );
       case 'skills':
@@ -1170,7 +1168,6 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
             data={section.data}
             onUpdate={readOnly ? () => {} : (data) => updateSection(section.id, data)}
             onDelete={readOnly ? () => {} : () => deleteSection(section.id)}
-            readOnly={readOnly}
           />
         );
       case 'experience':
@@ -1179,7 +1176,6 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
             experience={section.data}
             onUpdate={readOnly ? () => {} : (data) => updateSection(section.id, data)}
             onDelete={readOnly ? () => {} : () => deleteSection(section.id)}
-            readOnly={readOnly}
           />
         );
       case 'education':
@@ -1188,7 +1184,6 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
             education={section.data}
             onUpdate={readOnly ? () => {} : (data) => updateSection(section.id, data)}
             onDelete={readOnly ? () => {} : () => deleteSection(section.id)}
-            readOnly={readOnly}
           />
         );
       case 'custom':
@@ -1197,7 +1192,6 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
             data={section.data}
             onUpdate={readOnly ? () => {} : (data) => updateSection(section.id, data)}
             onDelete={readOnly ? () => {} : () => deleteSection(section.id)}
-            readOnly={readOnly}
           />
         );
       default:

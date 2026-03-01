@@ -8,7 +8,7 @@ import React, {
   PropsWithChildren,
 } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { TranscriptItem } from "@/app/types";
+import { TranscriptItem } from "@/types";
 
 type TranscriptContextValue = {
   transcriptItems: TranscriptItem[];

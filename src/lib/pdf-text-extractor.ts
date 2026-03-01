@@ -1,4 +1,4 @@
-import pdfParse from 'pdf-parse';
+import pdfParse from '@jchaffin/pdf-parse';
 
 // Professional PDF text extractor using pdf-parse library
 export async function extractPDFText(file: File): Promise<string> {

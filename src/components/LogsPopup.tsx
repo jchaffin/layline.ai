@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect, useState } from "react";
-import { useEvent } from "@/app/contexts/EventContext";
+import { useEvent } from "@/contexts/EventContext";
 import { LoggedEvent } from "@/types";
 
 export interface LogsPopupProps {
@@ -92,9 +92,11 @@ function LogsPopup({ isVisible, onClose }: LogsPopupProps) {
           ) : (
             loggedEvents.map((log, idx) => {
               const arrowInfo = getDirectionArrow(log.direction);
+              const response = log.eventData?.response as Record<string, unknown> | undefined;
+              const statusDetails = response?.status_details as Record<string, unknown> | undefined;
               const isError =
                 log.eventName.toLowerCase().includes("error") ||
-                log.eventData?.response?.status_details?.error != null;
+                statusDetails?.error != null;
 
               return (
                 <div

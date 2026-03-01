@@ -43,11 +43,6 @@ export const authOptions: NextAuthOptions = {
         console.log("[NextAuth] signIn", { userId: user?.id, provider: account?.provider, isNewUser });
       }
     },
-    error: async ({ error }) => {
-      if (process.env.NODE_ENV === "development") {
-        console.error("[NextAuth] error", error);
-      }
-    },
   },
   pages: {
     signIn: "/auth/signin",

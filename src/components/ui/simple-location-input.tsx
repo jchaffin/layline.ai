@@ -8,9 +8,9 @@ import { MapPin } from "lucide-react";
 // Use global Google Maps types from google-maps.d.ts
 
 interface LocationData {
-  city: string;
-  state: string;
-  zipCode: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
 }
 
 interface SimpleLocationInputProps {
@@ -142,7 +142,7 @@ export function SimpleLocationInput({
   id,
   required = false,
   showDetailedFields = false,
-  locationData = { city: '', state: '', zipCode: '' },
+  locationData = {},
   onLocationDataChange
 }: SimpleLocationInputProps) {
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -397,7 +397,7 @@ export function SimpleLocationInput({
               value={locationData.state}
               onChange={(e) => handleStateInputChange(e.target.value)}
               onBlur={handleBlur}
-              onFocus={() => locationData.state.trim() && stateSuggestions.length > 0 && setShowStateSuggestions(true)}
+              onFocus={() => locationData.state?.trim() && stateSuggestions.length > 0 && setShowStateSuggestions(true)}
               placeholder="State (e.g., CA, NY)"
               required={required}
               maxLength={2}

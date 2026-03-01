@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle, ArrowLeft, RefreshCw } from "lucide-react";
 import Link from "next/link";
 
-export default function AuthErrorPage() {
+function AuthErrorContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
 
@@ -97,75 +98,82 @@ export default function AuthErrorPage() {
   const errorDetails = getErrorDetails(error);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="flex items-center justify-center mb-4">
-            <div className="bg-red-100 p-3 rounded-full">
-              <AlertTriangle className="w-8 h-8 text-red-600" />
-            </div>
+    <div className="w-full max-w-md space-y-6">
+      <div className="text-center space-y-2">
+        <div className="flex items-center justify-center mb-4">
+          <div className="bg-red-100 p-3 rounded-full">
+            <AlertTriangle className="w-8 h-8 text-red-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Authentication Error</h1>
-          <p className="text-gray-600">Something went wrong during sign-in</p>
         </div>
+        <h1 className="text-2xl font-bold text-gray-900">Authentication Error</h1>
+        <p className="text-gray-600">Something went wrong during sign-in</p>
+      </div>
 
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl text-red-700">{errorDetails.title}</CardTitle>
-            <CardDescription>{errorDetails.description}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Error Alert */}
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                {error ? `Error Code: ${error}` : "Unknown error occurred"}
-              </AlertDescription>
-            </Alert>
+      <Card>
+        <CardHeader className="text-center">
+          <CardTitle className="text-xl text-red-700">{errorDetails.title}</CardTitle>
+          <CardDescription>{errorDetails.description}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              {error ? `Error Code: ${error}` : "Unknown error occurred"}
+            </AlertDescription>
+          </Alert>
 
-            {/* Action Buttons */}
-            <div className="space-y-3">
-              {errorDetails.canRetry && (
-                <Button asChild className="w-full">
-                  <Link href="/auth/signin">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Try Again
-                  </Link>
-                </Button>
-              )}
-              
-              <Button variant="outline" asChild className="w-full">
-                <Link href="/auth/signup">
-                  Create New Account
+          <div className="space-y-3">
+            {errorDetails.canRetry && (
+              <Button asChild className="w-full">
+                <Link href="/auth/signin">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again
                 </Link>
               </Button>
-            </div>
-
-            {/* Help Text */}
-            <div className="text-center text-sm text-gray-600 space-y-2">
-              <p>Still having trouble?</p>
-              <Link 
-                href="/support" 
-                className="text-blue-600 hover:text-blue-500 font-medium"
-              >
-                Contact Support
+            )}
+            
+            <Button variant="outline" asChild className="w-full">
+              <Link href="/auth/signup">
+                Create New Account
               </Link>
-            </div>
-          </CardContent>
-        </Card>
+            </Button>
+          </div>
 
-        {/* Back to Home */}
-        <div className="text-center">
-          <Link 
-            href="/" 
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-gray-900"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back to home
-          </Link>
-        </div>
+          <div className="text-center text-sm text-gray-600 space-y-2">
+            <p>Still having trouble?</p>
+            <Link 
+              href="/support" 
+              className="text-blue-600 hover:text-blue-500 font-medium"
+            >
+              Contact Support
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="text-center">
+        <Link 
+          href="/" 
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-gray-900"
+        >
+          <ArrowLeft className="w-4 h-4 mr-1" />
+          Back to home
+        </Link>
       </div>
+    </div>
+  );
+}
+
+export default function AuthErrorPage() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50 flex items-center justify-center p-4">
+      <Suspense fallback={
+        <div className="flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600" />
+        </div>
+      }>
+        <AuthErrorContent />
+      </Suspense>
     </div>
   );
 }

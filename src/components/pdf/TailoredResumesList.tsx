@@ -31,7 +31,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ResumeStyleSelector } from "@/components/resume-style-selector";
-import { StructuredResumePreview } from "@/components/structured-resume-preview";
+import StructuredResumePreview from "@/components/structured-resume-preview";
 
 interface TailoredResume {
   key: string;

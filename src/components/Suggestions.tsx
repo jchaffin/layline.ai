@@ -4,8 +4,6 @@ import React, { useRef, useEffect, useState } from "react";
 import { useEvent } from "@/contexts/EventContext";
 import { useTranscript } from "@/contexts/TranscriptContext";
 import { LoggedEvent } from "@/types";
-import { interviewConfig } from "@/app/agentConfigs/interview/config";
-
 export interface SuggestionsProps {
   isExpanded: boolean;
 }
@@ -40,7 +38,7 @@ function Suggestions({ isExpanded }: SuggestionsProps) {
           },
           body: JSON.stringify({
             question: question,
-            context: `Generate a brief, 1-2 sentence answer for this interview question. Use the candidate's background: ${interviewConfig.candidate.experience.map((exp) => `${exp.role} at ${exp.company}`).join(", ")}. Keep it short and specific.`,
+            context: `Generate a brief, 1-2 sentence answer for this interview question. Use the candidate's background if available. Keep it short and specific.`,
           }),
         });
 
@@ -64,15 +62,16 @@ function Suggestions({ isExpanded }: SuggestionsProps) {
       console.log("Event:", event.eventName, event.direction, event.eventData);
 
       // Look for agent response completion events
+      const eventResponse = event.eventData?.response as Record<string, unknown> | undefined;
       if (
         event.direction === "server" &&
         event.eventName.includes("response.done") &&
-        event.eventData.response &&
-        event.eventData.response.id
+        eventResponse &&
+        eventResponse.id
       ) {
         console.log(
           "Found agent response completion event:",
-          event.eventData.response.id,
+          eventResponse.id,
         );
 
         // We need to get the actual text from the transcript items since the response event doesn't contain text

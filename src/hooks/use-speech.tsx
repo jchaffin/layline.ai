@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 interface UseSpeechOptions {
+  voice?: string;
   autoPlay?: boolean;
 }
 
