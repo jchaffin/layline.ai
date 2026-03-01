@@ -82,7 +82,7 @@ export default function SignInPage() {
               <Briefcase className="w-8 h-8 text-white" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Welcome to JobLaunch</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Welcome to Layline</h1>
           <p className="text-gray-600">Sign in to access your personalized job search dashboard</p>
         </div>
 

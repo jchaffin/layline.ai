@@ -97,7 +97,7 @@ export default function SignUpPage() {
             <CardHeader className="space-y-1">
               <CardTitle className="text-2xl text-center">Create Account</CardTitle>
               <CardDescription className="text-center">
-                Get started with your free JobLaunch account
+                Get started with your free Layline account
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

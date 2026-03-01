@@ -49,7 +49,7 @@ export default function AuthGuard({ children, fallback }: AuthGuardProps) {
             </div>
             <h1 className="text-3xl font-bold text-gray-900">Sign in Required</h1>
             <p className="text-gray-600">
-              You need to sign in to access your JobLaunch dashboard
+              You need to sign in to access your Layline dashboard
             </p>
           </div>
 

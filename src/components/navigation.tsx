@@ -151,7 +151,7 @@ export function Navigation({
         <div className={`border-b border-gray-200 ${isCollapsed ? 'p-3' : 'p-6'}`}>
           <div className="flex items-center justify-between">
             {!isCollapsed && (
-              <h1 className="text-xl font-semibold text-gray-900">JobLaunch</h1>
+              <h1 className="text-xl font-semibold text-gray-900">Layline</h1>
             )}
             <div className="flex items-center space-x-2">
               {!isCollapsed && <LoginButton />}

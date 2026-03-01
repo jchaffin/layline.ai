@@ -21,9 +21,9 @@ export function clearLegacyData() {
     localStorage.removeItem(`guest:${key}`);
   });
 
-  // Clear any other JobLaunch related data
+  // Clear any other Layline related data
   Object.keys(localStorage).forEach(key => {
-    if (key.startsWith('joblaunch:') || 
+    if (key.startsWith('layline:') || 
         key.startsWith('interview:') || 
         key.startsWith('resume:') ||
         key.includes('parsed') ||

@@ -68,7 +68,7 @@ export default function HomePage() {
               <div className="bg-blue-600 p-2 rounded-lg">
                 <Briefcase className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xl font-bold text-gray-900">JobLaunch</span>
+              <span className="text-xl font-bold text-gray-900">Layline</span>
             </div>
             
             <div className="flex items-center space-x-4">
@@ -169,7 +169,7 @@ export default function HomePage() {
             Ready to Transform Your Job Search?
           </h2>
           <p className="text-xl text-blue-100 mb-8">
-            Join thousands of job seekers who've accelerated their careers with JobLaunch.
+            Join thousands of job seekers who've accelerated their careers with Layline.
             Start your free trial today.
           </p>
           
@@ -195,7 +195,7 @@ export default function HomePage() {
               <div className="bg-blue-600 p-2 rounded-lg">
                 <Briefcase className="w-5 h-5 text-white" />
               </div>
-              <span className="text-lg font-bold text-white">JobLaunch</span>
+              <span className="text-lg font-bold text-white">Layline</span>
             </div>
             
             <div className="flex items-center space-x-6 text-gray-400">
@@ -206,7 +206,7 @@ export default function HomePage() {
           </div>
           
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 JobLaunch. All rights reserved.</p>
+            <p>&copy; 2024 Layline. All rights reserved.</p>
           </div>
         </div>
       </footer>
