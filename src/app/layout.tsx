@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { QueryProvider } from '@/lib/query-provider'
-import { ThemeProvider } from '@/components/theme-provider'
+import { ThemeProvider } from '@/components/layout/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
 import AuthSessionProvider from '@/components/providers/SessionProvider'
 import '@/lib/clear-legacy-data' // Clear legacy data on app load

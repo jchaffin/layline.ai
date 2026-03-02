@@ -35,21 +35,6 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ],
-      "@/components/*": [
-        "./src/components/*"
-      ],
-      "@/components/pdf/*": [
-        "./src/components/pdf/*"
-      ],
-      "@/components/job/*": [
-        "./src/components/job/*"
-      ],
-      "@/hooks/*": [
-        "./src/hooks/*"
-      ],
-      "@/lib/*": [
-        "./src/lib/*"
       ]
     },
     "target": "ES2017"
