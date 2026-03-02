@@ -7,31 +7,29 @@ import {
   type VoiceStatus,
 } from "@jchaffin/voicekit";
 import { openai } from "@jchaffin/voicekit/openai";
-import { createInterviewAgent } from "@/agents/interview_agent";
+import { createInterviewAgent } from "@/agents/interviewAgent";
+import { createMeAgent } from "@/agents/meAgent";
+import type {
+  InterviewSetupData,
+  FeedbackItem,
+  CoachSuggestion,
+  CoachWarning,
+} from "@/types/interview";
 
 const adapter = openai();
-
-export interface InterviewSetupData {
-  companyName?: string;
-  roleTitle?: string;
-  interviewType?: string;
-  jobDescription?: string;
-}
-
-export interface FeedbackItem {
-  rating: string;
-  strengths: string;
-  improvements: string;
-  tip: string;
-  timestamp: number;
-}
 
 export function useInterviewSession() {
   const [sessionStatus, setSessionStatus] =
     useState<VoiceStatus>("DISCONNECTED");
   const [feedbackItems, setFeedbackItems] = useState<FeedbackItem[]>([]);
+  const [coachSuggestions, setCoachSuggestions] = useState<CoachSuggestion[]>(
+    []
+  );
+  const [coachWarnings, setCoachWarnings] = useState<CoachWarning[]>([]);
   const [interviewEnded, setInterviewEnded] = useState(false);
+  const [endSummary, setEndSummary] = useState<string | null>(null);
   const [setupData, setSetupData] = useState<InterviewSetupData | null>(null);
+  const [isResearching, setIsResearching] = useState(false);
 
   const isConnected = sessionStatus === "CONNECTED";
   const isDisconnected = sessionStatus === "DISCONNECTED";
@@ -49,7 +47,6 @@ export function useInterviewSession() {
       onConnectionChange: (s) => setSessionStatus(s),
     });
 
-  // Create hidden audio element for playback
   useEffect(() => {
     if (typeof window === "undefined") return;
     const el = document.createElement("audio");
@@ -81,6 +78,53 @@ export function useInterviewSession() {
     }
   };
 
+  const fetchCompanyResearch = async (
+    company?: string,
+    role?: string,
+    jobDescription?: string
+  ): Promise<string | null> => {
+    if (!company && !role) return null;
+    try {
+      const res = await fetch("/api/research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company, role, jobDescription }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.research || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const loadResumeSummary = (): string | null => {
+    try {
+      const stored = localStorage.getItem("parsedResumeData");
+      if (!stored) return null;
+      const resume = JSON.parse(stored);
+      const parts: string[] = [];
+      if (resume.name) parts.push(`Name: ${resume.name}`);
+      if (resume.summary) parts.push(`Summary: ${resume.summary}`);
+      if (resume.experience?.length) {
+        const exp = resume.experience
+          .slice(0, 3)
+          .map(
+            (e: { company?: string; role?: string; description?: string }) =>
+              `${e.role || ""} at ${e.company || ""}: ${(e.description || "").slice(0, 200)}`
+          )
+          .join("\n");
+        parts.push(`Recent Experience:\n${exp}`);
+      }
+      if (resume.skills?.length) {
+        parts.push(`Skills: ${resume.skills.slice(0, 20).join(", ")}`);
+      }
+      return parts.join("\n\n");
+    } catch {
+      return null;
+    }
+  };
+
   const startInterview = useCallback(
     async (data: InterviewSetupData) => {
       if (statusRef.current !== "DISCONNECTED") return;
@@ -89,9 +133,30 @@ export function useInterviewSession() {
 
       setSetupData(data);
       setInterviewEnded(false);
+      setEndSummary(null);
       setFeedbackItems([]);
+      setCoachSuggestions([]);
+      setCoachWarnings([]);
+      setIsResearching(true);
 
-      const agent = createInterviewAgent(data);
+      const resumeSummary = loadResumeSummary();
+
+      const [companyResearch] = await Promise.all([
+        fetchCompanyResearch(
+          data.companyName,
+          data.roleTitle,
+          data.jobDescription
+        ),
+      ]);
+
+      setIsResearching(false);
+
+      const agent = createInterviewAgent({
+        mode: data.mode,
+        companyName: data.companyName,
+        roleTitle: data.roleTitle,
+        jobDescription: data.jobDescription,
+      });
 
       try {
         setSessionStatus("CONNECTING");
@@ -110,11 +175,21 @@ export function useInterviewSession() {
           getEphemeralKey: () => Promise.resolve(ephemeralKey),
           initialAgents: [agent],
           audioElement: audioEl,
-          extraContext: { interview: data },
+          extraContext: {
+            interview: {
+              mode: data.mode,
+              company: data.companyName,
+              role: data.roleTitle,
+            },
+            ...(companyResearch && { companyResearch }),
+            ...(resumeSummary && { resumeSummary }),
+            ...(data.jobDescription && {
+              jobDescription: data.jobDescription,
+            }),
+          },
           adapter,
         });
 
-        // Trigger the agent's opening greeting
         setTimeout(() => sendEvent({ type: "response.create" }), 1000);
       } catch (error) {
         console.error("Interview connection failed:", error);
@@ -175,29 +250,56 @@ export function useInterviewSession() {
     [mute]
   );
 
-  // Listen for interview events from agent tools
+  // Interview agent events
   useEffect(() => {
-    const handleEnd = () => {
+    const onEnd = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setEndSummary(detail?.summary || null);
       endInterview();
     };
 
-    const handleFeedback = (event: Event) => {
-      const detail = (event as CustomEvent).detail;
+    const onFeedback = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
       setFeedbackItems((prev) => [
         ...prev,
         { ...detail, timestamp: Date.now() },
       ]);
     };
 
-    window.addEventListener("interview:end", handleEnd);
-    window.addEventListener("interview:feedback", handleFeedback);
+    window.addEventListener("interview:end", onEnd);
+    window.addEventListener("interview:feedback", onFeedback);
     return () => {
-      window.removeEventListener("interview:end", handleEnd);
-      window.removeEventListener("interview:feedback", handleFeedback);
+      window.removeEventListener("interview:end", onEnd);
+      window.removeEventListener("interview:feedback", onFeedback);
     };
   }, [endInterview]);
 
-  // Cleanup on unmount
+  // MeAgent / coach events
+  useEffect(() => {
+    const onSuggestion = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setCoachSuggestions((prev) => [
+        { ...detail, timestamp: Date.now() },
+        ...prev,
+      ]);
+    };
+
+    const onWarning = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setCoachWarnings((prev) => [
+        { ...detail, timestamp: Date.now() },
+        ...prev,
+      ]);
+    };
+
+    window.addEventListener("coach:suggestion", onSuggestion);
+    window.addEventListener("coach:warning", onWarning);
+    return () => {
+      window.removeEventListener("coach:suggestion", onSuggestion);
+      window.removeEventListener("coach:warning", onWarning);
+    };
+  }, []);
+
   useEffect(() => {
     return () => {
       if (statusRef.current !== "DISCONNECTED") {
@@ -210,9 +312,13 @@ export function useInterviewSession() {
     sessionStatus,
     isConnected,
     isDisconnected,
+    isResearching,
     transcriptItems,
     feedbackItems,
+    coachSuggestions,
+    coachWarnings,
     interviewEnded,
+    endSummary,
     setupData,
     startInterview,
     endInterview,

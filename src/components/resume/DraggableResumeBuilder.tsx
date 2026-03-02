@@ -20,12 +20,12 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
+import { Textarea } from '@/components/ui/Textarea';
+import { Card, CardContent, CardHeader } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
 import { 
   GripVertical, 
   Plus, 
@@ -51,8 +51,8 @@ import {
   TrendingUp
 } from 'lucide-react';
 import SimpleDatePicker from '@/components/ui/UnifiedDatePicker';
-import { GooglePlacesAutocomplete } from '@/components/shared/auto-complete';
-import { RichTextEditor } from '@/components/shared/rich-text-editor';
+import { GooglePlacesAutocomplete } from '@/components/shared/AutoComplete';
+import { RichTextEditor } from '@/components/shared/RichTextEditor';
 
 interface DraggableResumeBuilderProps {
   resumeData: any;
@@ -91,7 +91,7 @@ function SortableItem({ id, children }: { id: string; children: React.ReactNode 
         <div 
           {...attributes} 
           {...listeners}
-          className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-gray-100"
+          className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-accent"
         >
           <GripVertical className="w-4 h-4 text-gray-400" />
         </div>
@@ -113,7 +113,7 @@ function ContactSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (da
   };
 
   return (
-    <Card className="mb-4">
+    <Card className="mb-6 bg-white border-0 rounded-2xl shadow-none">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center space-x-2">
           <User className="w-5 h-5 text-blue-600" />
@@ -135,7 +135,7 @@ function ContactSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (da
       </CardHeader>
       {!isCollapsed && (
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div>
             <Label>Full Name</Label>
             <Input
@@ -154,7 +154,7 @@ function ContactSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (da
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div>
             <Label>Email</Label>
             <Input
@@ -183,7 +183,7 @@ function ContactSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (da
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div>
             <Label>Website</Label>
             <Input
@@ -198,6 +198,14 @@ function ContactSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (da
               value={contact.linkedin || ''}
               onChange={(e) => updateField('linkedin', e.target.value)}
               placeholder="linkedin.com/in/username"
+            />
+          </div>
+          <div>
+            <Label>GitHub</Label>
+            <Input
+              value={contact.github || ''}
+              onChange={(e) => updateField('github', e.target.value)}
+              placeholder="github.com/username"
             />
           </div>
         </div>
@@ -244,7 +252,7 @@ function SummarySection({ data, onUpdate, onDelete }: { data: any; onUpdate: (da
   };
 
   return (
-    <Card className="mb-4">
+    <Card className="mb-6 bg-white border-0 rounded-2xl shadow-none">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center space-x-2">
           <User className="w-5 h-5 text-green-600" />
@@ -276,31 +284,6 @@ function SummarySection({ data, onUpdate, onDelete }: { data: any; onUpdate: (da
           minHeight="120px"
         />
         
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-gray-500">
-            Focus on your most relevant experience and achievements for the role you're targeting.
-          </p>
-          
-          <Button
-            onClick={improveSummaryWithAI}
-            variant="outline"
-            size="sm"
-            className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
-            disabled={isImproving || !data || data.trim() === ''}
-          >
-            {isImproving ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                Improving...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 mr-2" />
-                Write with AI
-              </>
-            )}
-          </Button>
-        </div>
       </CardContent>
       )}
     </Card>
@@ -325,7 +308,7 @@ function SkillsSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (dat
   };
 
   return (
-    <Card className="mb-4">
+    <Card className="mb-6 bg-white border-0 rounded-2xl shadow-none">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center space-x-2">
           <Award className="w-5 h-5 text-purple-600" />
@@ -362,15 +345,15 @@ function SkillsSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (dat
         
         <div className="flex flex-wrap gap-2">
           {skills.map((skill: string, index: number) => (
-            <Badge key={index} variant="secondary" className="text-sm py-1 px-3">
+            <span key={index} className="inline-flex items-center gap-1.5 text-sm py-1.5 px-3 rounded-full bg-blue-100 text-blue-800 font-medium">
               {skill}
               <button
                 onClick={() => removeSkill(index)}
-                className="ml-2 text-gray-500 hover:text-red-500"
+                className="text-blue-400 hover:text-red-500 transition-colors"
               >
                 <X className="w-3 h-3" />
               </button>
-            </Badge>
+            </span>
           ))}
         </div>
         
@@ -446,7 +429,7 @@ function ExperienceItem({
   };
 
   return (
-    <Card className="mb-4 border-l-4 border-l-blue-500">
+    <Card className="mb-6 bg-white border-0 rounded-2xl shadow-none">
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start">
           <h4 className="text-lg font-semibold">{experience.role || 'New Position'}</h4>
@@ -467,7 +450,7 @@ function ExperienceItem({
       </CardHeader>
       {!isCollapsed && (
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div>
             <Label>Company</Label>
             <Input
@@ -486,23 +469,16 @@ function ExperienceItem({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <Label className="flex items-center">
-              <Calendar className="w-4 h-4 mr-1" />
-              Start Date
-            </Label>
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
             <SimpleDatePicker
               value={experience.startDate}
               onChange={(date) => updateField('startDate', date)}
               placeholder="Start date"
             />
           </div>
-          <div>
-            <Label className="flex items-center">
-              <Calendar className="w-4 h-4 mr-1" />
-              End Date
-            </Label>
+          <span className="text-muted-foreground pb-2.5">—</span>
+          <div className="flex-1">
             {experience.isCurrentRole ? (
               <div className="h-10 px-3 border border-input bg-muted rounded-md flex items-center text-sm text-muted-foreground">
                 Present
@@ -515,79 +491,35 @@ function ExperienceItem({
               />
             )}
           </div>
-          <div className="flex items-end">
-            <label className="flex items-center space-x-2 text-sm">
-              <input
-                type="checkbox"
-                checked={experience.isCurrentRole || false}
-                onChange={(e) => updateField('isCurrentRole', e.target.checked)}
-                className="rounded border-gray-300"
-              />
-              <span>Current role</span>
-            </label>
+          <label className="flex items-center gap-1.5 text-sm pb-2.5 shrink-0">
+            <input
+              type="checkbox"
+              checked={experience.isCurrentRole || false}
+              onChange={(e) => updateField('isCurrentRole', e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            <span className="whitespace-nowrap">Current</span>
+          </label>
+          <div className="flex-1">
+            <GooglePlacesAutocomplete
+              value={experience.location === 'undefined' ? '' : (experience.location || '')}
+              onChange={(value) => updateField('location', value)}
+              placeholder="City, State"
+            />
           </div>
-        </div>
-
-        <div>
-          <Label className="flex items-center">
-            <MapPin className="w-4 h-4 mr-1" />
-            Location
-          </Label>
-          <GooglePlacesAutocomplete
-            value={experience.location || ''}
-            onChange={(value) => updateField('location', value)}
-            placeholder="City, State"
-          />
         </div>
 
         <div>
           <Label>Description & Achievements</Label>
-          <Textarea
+          <RichTextEditor
             value={experience.description || ''}
-            onChange={(e) => updateField('description', e.target.value)}
-            placeholder="• Led development of new features for mobile app&#10;• Managed team of 5 developers across 3 projects&#10;• Improved application performance by 40%"
-            className="min-h-[100px] resize-none font-mono text-sm"
-            rows={4}
+            onChange={(val) => updateField('description', val)}
+            placeholder="• Led development of new features&#10;• Managed team of 5 developers"
+            showWordCount={false}
+            showAIButton={true}
+            onAIClick={improveDescriptionWithAI}
+            maxChars={2000}
           />
-          
-          <div className="flex items-center justify-between mt-2">
-            <p className="text-xs text-gray-500">
-              Use bullet points (•) to list your key achievements and responsibilities.
-            </p>
-            
-            <div className="flex gap-2">
-              <Button
-                onClick={improveDescriptionWithAI}
-                variant="outline"
-                size="sm"
-                className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
-                disabled={isImproving || !experience.description || experience.description.trim() === ''}
-              >
-                {isImproving ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                    Improving...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Improve with AI
-                  </>
-                )}
-              </Button>
-              
-              {hasUnsavedChanges && (
-                <Button
-                  onClick={saveChanges}
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <Wand2 className="w-4 h-4 mr-2" />
-                  Save
-                </Button>
-              )}
-            </div>
-          </div>
         </div>
       </CardContent>
       )}
@@ -624,7 +556,7 @@ function CustomSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (dat
 
 
   return (
-    <Card className="mb-4 border-l-4 border-l-orange-500">
+    <Card className="mb-6 bg-white border-0 rounded-2xl shadow-none">
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start">
           {isEditingTitle ? (
@@ -732,7 +664,7 @@ function ATSRatingSection({ resumeData, onDataChange }: { resumeData: any; onDat
   };
 
   return (
-    <Card className="mb-6 border-l-4 border-l-purple-500 bg-purple-50/30">
+    <Card className="mb-6 bg-white border-0 rounded-2xl shadow-none">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center space-x-2">
           <Target className="w-5 h-5 text-purple-600" />
@@ -790,7 +722,7 @@ function ATSRatingSection({ resumeData, onDataChange }: { resumeData: any; onDat
           </div>
           
           {/* Score Bar */}
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-secondary rounded-full h-2">
             <div 
               className={`h-2 rounded-full transition-all duration-300 ${
                 atsScore >= 80 ? 'bg-green-500' : 
@@ -844,7 +776,7 @@ function EducationItem({
   };
 
   return (
-    <Card className="mb-4 border-l-4 border-l-green-500">
+    <Card className="mb-6 bg-white border-0 rounded-2xl shadow-none">
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start">
           <h4 className="text-lg font-semibold">{education.degree || 'New Education'}</h4>
@@ -865,7 +797,7 @@ function EducationItem({
       </CardHeader>
       {!isCollapsed && (
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div>
             <Label>Institution</Label>
             <Input
@@ -884,7 +816,7 @@ function EducationItem({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div>
             <Label>Degree</Label>
             <div className="relative">
@@ -1200,14 +1132,8 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
   };
 
   return (
-    <div className={readOnly ? "p-4" : "bg-gray-50 p-6"}>
+    <div className={readOnly ? "p-4" : "bg-[hsl(220,33%,93%)] p-8"}>
       <div className="max-w-4xl mx-auto">
-        {!readOnly && (
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Resume Builder</h1>
-            <p className="text-gray-600">Drag and drop sections to reorder. All fields are editable.</p>
-          </div>
-        )}
 
         {readOnly ? (
           // Read-only mode: no drag and drop

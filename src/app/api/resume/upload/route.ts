@@ -248,6 +248,7 @@ CRITICAL PARSING REQUIREMENTS:
 - Pay special attention to employment chronology and overlapping dates
 - For CURRENT ROLES: Set endDate to null/undefined, isCurrentRole to true
 - For PAST ROLES: Include proper endDate, isCurrentRole to false
+- DESCRIPTION MUST INCLUDE ALL BULLETS: For each job, capture EVERY bullet point, achievement, and responsibility line. Do NOT truncate or summarize. Each bullet should be on its own line prefixed with "- ". If a job has 8 bullets, all 8 must appear in the description field.
 
 Return JSON with this exact structure:
 {
@@ -261,7 +262,7 @@ Return JSON with this exact structure:
       "endDate": "MM/YYYY for past roles, null for current roles",
       "duration": "Full duration string as written in resume",
       "location": "City, State (if mentioned)",
-      "description": "Job Description and achievements",
+      "description": "COMPLETE job description including ALL bullet points, achievements, and responsibilities. Include EVERY line item from the resume - do NOT summarize or truncate. Preserve each bullet as a separate line prefixed with '- '. This is critical: capture the FULL text, not just the first bullet.",
       "keywords": ["relevant technical/industry keywords"],
       "isCurrentRole": true for current roles, false for past roles
     }
@@ -277,10 +278,13 @@ Return JSON with this exact structure:
     }
   ],
   "contact": {
+    "name": "Full Name",
+    "firstName": "First Name",
+    "lastName": "Last Name",
     "email": "extracted email",
     "phone": "extracted phone",
     "location": "City, State",
-    "linkedin": "https://linkedin.com/in/yourprofile"
+    "linkedin": "https://linkedin.com/in/yourprofile",
     "github": "https://github.com",
     "website": "yourportfolio.com"
   },

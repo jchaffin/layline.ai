@@ -2,10 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import { TranscriptProvider, EventProvider } from "@jchaffin/voicekit";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Input } from "@/components/ui/Input";
 import {
   Mic,
   MicOff,
@@ -18,11 +18,8 @@ import {
   Lightbulb,
   RotateCcw,
 } from "lucide-react";
-import {
-  useInterviewSession,
-  type InterviewSetupData,
-  type FeedbackItem,
-} from "@/hooks/use_interview_session";
+import { useInterviewSession } from "@/hooks/useInterviewSession";
+import type { InterviewSetupData, FeedbackItem } from "@/types/interview";
 import InterviewSetup from "@/components/interview/InterviewSetup";
 import type { TranscriptItem } from "@jchaffin/voicekit";
 
@@ -31,6 +28,7 @@ function InterviewSession() {
     sessionStatus,
     isConnected,
     isDisconnected,
+    isResearching,
     transcriptItems,
     feedbackItems,
     interviewEnded,
@@ -145,8 +143,13 @@ function InterviewSession() {
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
             {visibleItems.length === 0 && (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center text-muted-foreground">
-                  {sessionStatus === "CONNECTING" ? (
+                <div className="text-center text-muted-foreground space-y-2">
+                  {isResearching ? (
+                    <>
+                      <p className="animate-pulse font-medium">Researching company...</p>
+                      <p className="text-sm">Gathering context from knowledge base and web</p>
+                    </>
+                  ) : sessionStatus === "CONNECTING" ? (
                     <p className="animate-pulse">Connecting to interviewer...</p>
                   ) : (
                     <p>Your interview will begin shortly. The AI will speak first.</p>

@@ -1,0 +1,104 @@
+{
+  "timestamp": "2026-03-02T01:34:46.551Z",
+  "fileName": "Resume.pdf",
+  "openaiRawResponse": "{\n  \"summary\": \"Full-stack engineer with 7+ years building and operating production systems across real-time infrastructure and applied AI. Experienced in Python, TypeScript, Next.js, React, and modern LLM-powered systems. Specializes in Kubernetes-based infrastructure for GPU-backed inference and low-latency streaming services with a focus on reliability under real traffic.\",\n  \"skills\": [\n    \"Applied AI\",\n    \"LLMs\",\n    \"ML\",\n    \"Node.js\",\n    \"Typescript\",\n    \"React\",\n    \"Python\",\n    \"WebRTC\",\n    \"Conversational AI\"\n  ],\n  \"experience\": [\n    {\n      \"company\": \"ProsodyAI\",\n      \"role\": \"Principal AI Engineer\",\n      \"startDate\": \"10/2024\",\n      \"endDate\": null,\n      \"duration\": \"Oct 2024 - Present\",\n      \"location\": \"undefined\",\n      \"description\": \"Architected and shipped a production real-time conversational intelligence platform. Achieved ~75% classification accuracy. Built GPU accelerated distributed inference services with dynamic batching, INT8 quantization, and autoscaling.\",\n      \"keywords\": [\n        \"Python\",\n        \"PyTorch\",\n        \"CUDA\",\n        \"Kubernetes\",\n        \"State Space Models\",\n        \"Streaming Inference\",\n        \"Audio DSP\",\n        \"Telemetry\",\n        \"Distributed Systems\"\n      ],\n      \"isCurrentRole\": true\n    },\n    {\n      \"company\": \"Uniphore\",\n      \"role\": \"Software Engineer\",\n      \"startDate\": \"06/2021\",\n      \"endDate\": \"10/2024\",\n      \"duration\": \"Jun 2021 - Oct 2024\",\n      \"location\": \"undefined\",\n      \"description\": \"Developed modular UI components using Next.js, React, and GraphQL. Improved initial load times by 35%. Built internal analytics tools with NumPy, Pandas, Jupyter, and Python.\",\n      \"keywords\": [\n        \"Next.js\",\n        \"React\",\n        \"GraphQL\",\n        \"NumPy\",\n        \"Pandas\",\n        \"Jupyter\",\n        \"Python\"\n      ],\n      \"isCurrentRole\": false\n    },\n    {\n      \"company\": \"Wave Computing\",\n      \"role\": \"AI Associate\",\n      \"startDate\": \"06/2018\",\n      \"endDate\": \"09/2020\",\n      \"duration\": \"Jun 2018 - Sept 2020\",\n      \"location\": \"Campbell, CA\",\n      \"description\": \"Built custom TensorFlow ops for DPU Compiler. Developed neural networks for audio and vision classification. Built full-stack admin tools with Node.js, React, and GraphQL.\",\n      \"keywords\": [\n        \"TensorFlow\",\n        \"PyTorch\",\n        \"Node.js\",\n        \"React\",\n        \"GraphQL\"\n      ],\n      \"isCurrentRole\": false\n    }\n  ],\n  \"education\": [\n    {\n      \"institution\": \"University of California, Los Angeles\",\n      \"degree\": \"Bachelor of Science\",\n      \"field\": \"Linguistics and Computer Science\",\n      \"year\": \"2020\",\n      \"gpa\": null,\n      \"honors\": null\n    }\n  ],\n  \"contact\": {\n    \"email\": \"jchaffin57@gmail.com\",\n    \"phone\": \"6503803288\",\n    \"location\": \"Beverly Hills 90210, United States\",\n    \"linkedin\": \"LinkedIn\",\n    \"github\": \"Github\",\n    \"website\": \"Website\"\n  },\n  \"ats_score\": \"85\",\n  \"ats_recommendations\": [\n    \"Ensure all key skills are mentioned in the job experience section.\",\n    \"Include more industry-specific keywords related to AI and infrastructure.\",\n    \"Provide quantifiable achievements in all roles.\"\n  ]\n}",
+  "parsedJSON": {
+    "summary": "Full-stack engineer with 7+ years building and operating production systems across real-time infrastructure and applied AI. Experienced in Python, TypeScript, Next.js, React, and modern LLM-powered systems. Specializes in Kubernetes-based infrastructure for GPU-backed inference and low-latency streaming services with a focus on reliability under real traffic.",
+    "skills": [
+      "Applied AI",
+      "LLMs",
+      "ML",
+      "Node.js",
+      "Typescript",
+      "React",
+      "Python",
+      "WebRTC",
+      "Conversational AI"
+    ],
+    "experience": [
+      {
+        "company": "ProsodyAI",
+        "role": "Principal AI Engineer",
+        "startDate": "10/2024",
+        "endDate": null,
+        "duration": "Oct 2024 - Present",
+        "location": "undefined",
+        "description": "Architected and shipped a production real-time conversational intelligence platform. Achieved ~75% classification accuracy. Built GPU accelerated distributed inference services with dynamic batching, INT8 quantization, and autoscaling.",
+        "keywords": [
+          "Python",
+          "PyTorch",
+          "CUDA",
+          "Kubernetes",
+          "State Space Models",
+          "Streaming Inference",
+          "Audio DSP",
+          "Telemetry",
+          "Distributed Systems"
+        ],
+        "isCurrentRole": true
+      },
+      {
+        "company": "Uniphore",
+        "role": "Software Engineer",
+        "startDate": "06/2021",
+        "endDate": "10/2024",
+        "duration": "Jun 2021 - Oct 2024",
+        "location": "undefined",
+        "description": "Developed modular UI components using Next.js, React, and GraphQL. Improved initial load times by 35%. Built internal analytics tools with NumPy, Pandas, Jupyter, and Python.",
+        "keywords": [
+          "Next.js",
+          "React",
+          "GraphQL",
+          "NumPy",
+          "Pandas",
+          "Jupyter",
+          "Python"
+        ],
+        "isCurrentRole": false
+      },
+      {
+        "company": "Wave Computing",
+        "role": "AI Associate",
+        "startDate": "06/2018",
+        "endDate": "09/2020",
+        "duration": "Jun 2018 - Sept 2020",
+        "location": "Campbell, CA",
+        "description": "Built custom TensorFlow ops for DPU Compiler. Developed neural networks for audio and vision classification. Built full-stack admin tools with Node.js, React, and GraphQL.",
+        "keywords": [
+          "TensorFlow",
+          "PyTorch",
+          "Node.js",
+          "React",
+          "GraphQL"
+        ],
+        "isCurrentRole": false
+      }
+    ],
+    "education": [
+      {
+        "institution": "University of California, Los Angeles",
+        "degree": "Bachelor of Science",
+        "field": "Linguistics and Computer Science",
+        "year": "2020",
+        "gpa": null,
+        "honors": null
+      }
+    ],
+    "contact": {
+      "email": "jchaffin57@gmail.com",
+      "phone": "6503803288",
+      "location": "Beverly Hills 90210, United States",
+      "linkedin": "LinkedIn",
+      "github": "Github",
+      "website": "Website"
+    },
+    "ats_score": "85",
+    "ats_recommendations": [
+      "Ensure all key skills are mentioned in the job experience section.",
+      "Include more industry-specific keywords related to AI and infrastructure.",
+      "Provide quantifiable achievements in all roles."
+    ]
+  },
+  "model": "gpt-4o",
+  "processingTime": 1772415286551
+}

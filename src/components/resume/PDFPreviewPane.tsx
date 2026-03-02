@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { useToast } from "@/hooks/useToast";
 import {
   Download,
   Loader2,
@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
-const PDFViewer = dynamic(() => import("@/components/resume/PDFViewer"), {
+const PDFViewer = dynamic(() => import("@/components/resume/PdfViewer"), {
   ssr: false,
   loading: () => (
     <div className="p-4 text-sm text-gray-600">Loading viewer…</div>
@@ -46,7 +46,7 @@ const generatePDFFromResumeData = async (
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
   
-  const response = await fetch("/api/resume/generate-pdf", {
+  const response = await fetch("/api/resume/generate/pdf", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ resumeData, jobDescription }),

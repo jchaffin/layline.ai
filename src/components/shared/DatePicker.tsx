@@ -6,13 +6,13 @@ import "react-datepicker/dist/react-datepicker.css"
 import { format } from "date-fns"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/enhanced-calendar"
+import { Button } from "@/components/ui/Button"
+import { Calendar } from "@/components/ui/EnhancedCalendar"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
+} from "@/components/ui/Popover"
 
 interface DatePickerProps {
   date?: Date

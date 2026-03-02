@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import { ResumeStyleGenerator, RESUME_STYLES } from '@/lib/resume-styles';
+import { ResumeStyleGenerator, RESUME_STYLES } from '@/lib/resumeStyles';
 
 // Initialize S3 client
 const s3Client = new S3Client({

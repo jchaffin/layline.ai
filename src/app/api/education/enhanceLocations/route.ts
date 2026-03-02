@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { enhanceInstitutionLocation } from '@/lib/google-maps';
+import { enhanceInstitutionLocation } from '@/lib/googleMaps';
 
 export async function POST() {
   try {

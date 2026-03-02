@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
 import { Building2, MapPin } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { commonUSCities, filterCities } from '@/lib/google-maps-utils';
+import { Badge } from '@/components/ui/Badge';
+import { commonUSCities, filterCities } from '@/lib/googleMapsUtils';
 
 declare global {
   interface Window {

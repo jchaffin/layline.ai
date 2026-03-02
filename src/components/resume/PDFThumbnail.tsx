@@ -1,52 +1,66 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { FileText } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { FileText, Loader2 } from "lucide-react";
 
 interface PDFThumbnailProps {
-  resumeData: any;
+  resumeData?: any;
+  s3Key?: string;
   className?: string;
   fallbackIcon?: React.ReactNode;
 }
 
-export default function PDFThumbnail({ resumeData, className = '', fallbackIcon }: PDFThumbnailProps) {
+export default function PDFThumbnail({
+  resumeData,
+  s3Key,
+  className = "",
+  fallbackIcon,
+}: PDFThumbnailProps) {
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (!resumeData) {
+    if (!resumeData && !s3Key) {
       setIsLoading(false);
       setError(true);
       return;
     }
-
     generateThumbnail();
-  }, [resumeData]);
+  }, [resumeData, s3Key]);
 
   const generateThumbnail = async () => {
     try {
       setIsLoading(true);
       setError(false);
 
-      // Generate PDF data URL for thumbnail
-      const response = await fetch('/api/resume/pdf-image', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ resumeData }),
+      let data = resumeData;
+
+      if (!data && s3Key) {
+        const res = await fetch(
+          `/api/resume/parsed?action=get&key=${encodeURIComponent(s3Key)}`
+        );
+        if (res.ok) data = await res.json();
+      }
+
+      if (!data) {
+        setError(true);
+        return;
+      }
+
+      const response = await fetch("/api/resume/generate/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumeData: data }),
       });
 
       if (response.ok) {
         const blob = await response.blob();
-        const imageUrl = URL.createObjectURL(blob);
-        setThumbnailUrl(imageUrl);
+        setThumbnailUrl(URL.createObjectURL(blob));
       } else {
         setError(true);
       }
-    } catch (err) {
-      console.error('Error generating PDF thumbnail:', err);
+    } catch {
       setError(true);
     } finally {
       setIsLoading(false);
@@ -55,38 +69,34 @@ export default function PDFThumbnail({ resumeData, className = '', fallbackIcon 
 
   if (isLoading) {
     return (
-      <div className={`flex items-center justify-center bg-gray-100 ${className}`}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400 mx-auto mb-2"></div>
-          <p className="text-xs text-gray-500">Generating preview...</p>
-        </div>
+      <div
+        className={`flex items-center justify-center bg-muted animate-pulse ${className}`}
+      >
+        <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
       </div>
     );
   }
 
   if (error || !thumbnailUrl) {
     return (
-      <div className={`flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 ${className}`}>
-        <div className="text-center">
-          {fallbackIcon || <FileText className="w-8 h-8 text-gray-400" />}
-          <div className="mt-2 text-xs text-gray-500 font-medium uppercase tracking-wide">
-            Resume
-          </div>
-        </div>
+      <div
+        className={`flex items-center justify-center bg-muted ${className}`}
+      >
+        {fallbackIcon || (
+          <FileText className="w-6 h-6 text-muted-foreground" />
+        )}
       </div>
     );
   }
 
   return (
-    <div className={`relative overflow-hidden bg-white ${className}`}>
-      <img 
+    <div className={`relative overflow-hidden bg-card ${className}`}>
+      <img
         src={thumbnailUrl}
         alt="Document preview"
         className="w-full h-full object-cover object-top"
         onError={() => setError(true)}
       />
-      {/* Subtle overlay to indicate it's a preview */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none"></div>
     </div>
   );
 }

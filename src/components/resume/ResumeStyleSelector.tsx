@@ -1,14 +1,14 @@
 'use client'
 
 import { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
+import { ScrollArea } from "@/components/ui/ScrollArea";
 import { Download, Palette, Check } from "lucide-react";
-import { RESUME_STYLES, type ResumeStyle } from "@/lib/resume-styles";
-import { useToast } from "@/hooks/use-toast";
+import { RESUME_STYLES, type ResumeStyle } from "@/lib/resumeStyles";
+import { useToast } from "@/hooks/useToast";
 
 interface ResumeStyleSelectorProps {
   resumeKey: string;

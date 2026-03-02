@@ -1,14 +1,14 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Label } from '@/components/ui/Label';
+import { Textarea } from '@/components/ui/Textarea';
+import { Input } from '@/components/ui/Input';
 import { Upload, FileText, Save, X, Edit, Check, Plus, Trash2, Sparkles, GraduationCap, FolderOpen, Briefcase } from 'lucide-react';
-import StructuredResumePreview from '@/components/resume/structured-resume-preview'; 
-import { GooglePlacesAutocomplete } from '@/components/shared/auto-complete';
+import StructuredResumePreview from '@/components/resume/StructuredResumePreview'; 
+import { GooglePlacesAutocomplete } from '@/components/shared/AutoComplete';
 import SimpleDatePicker from '@/components/ui/UnifiedDatePicker';
-import { toast } from '@/hooks/use-toast'; 
+import { toast } from '@/hooks/useToast'; 
 import CoverLetterDraft from '@/components/resume/CoverLetterDraft';
 
 
@@ -83,20 +83,15 @@ export default function ResumeUpload({
   const [isEditing, setIsEditing] = useState(false);
   const [improvingIndex, setImprovingIndex] = useState<number | null>(null);
 
-  // Load cached resume on mount
   useEffect(() => {
-    const cached = localStorage.getItem('parsedResumeData');
-    if (cached && !parsedData) {
-      try {
-        const data = JSON.parse(cached);
-        setParsedData(data);
-        setEditableData(data);
-        onResumeUploaded?.(data);
-      } catch (error) {
-        console.error('Error loading cached resume:', error);
-      }
+    if (currentResume) {
+      setParsedData(currentResume);
+      setEditableData(currentResume);
+    } else {
+      setParsedData(null);
+      setEditableData(null);
     }
-  }, [parsedData, onResumeUploaded]);
+  }, [currentResume]);
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -139,7 +134,6 @@ export default function ResumeUpload({
       if (result.success && result.data) {
         setParsedData(result.data);
         setEditableData(result.data);
-        localStorage.setItem('parsedResumeData', JSON.stringify(result.data));
         onResumeUploaded?.(result.data);
       }
     } catch (error) {
@@ -173,7 +167,6 @@ export default function ResumeUpload({
       if (result.success && result.data) {
         setParsedData(result.data);
         setEditableData(result.data);
-        localStorage.setItem('parsedResumeData', JSON.stringify(result.data));
         onResumeUploaded?.(result.data);
         setResumeText('');
         setShowTextInput(false);
@@ -198,7 +191,6 @@ export default function ResumeUpload({
       tailoring_notes: improvedData.tailoring_notes,
     };
     setParsedData(convertedData);
-    localStorage.setItem('parsedResumeData', JSON.stringify(convertedData));
     onResumeUploaded?.(convertedData);
   };
 
@@ -210,8 +202,7 @@ export default function ResumeUpload({
   const saveEdits = () => {
     if (editableData) {
       setParsedData(editableData);
-      localStorage.setItem('parsedResumeData', JSON.stringify(editableData));
-    onResumeUploaded?.(editableData);
+      onResumeUploaded?.(editableData);
       setIsEditing(false);
     }
   };
@@ -227,7 +218,6 @@ export default function ResumeUpload({
     setResumeText('');
     setShowTextInput(false);
     setIsEditing(false);
-    localStorage.removeItem('parsedResumeData');
     onResumeUploaded?.(null);
   };
 
@@ -263,7 +253,6 @@ export default function ResumeUpload({
         throw new Error('Invalid response format');
       }
       
-      // Update the experience with AI-improved description
       const newExperience = [...editableData.experience];
       newExperience[index] = {
         ...experience,
@@ -587,66 +576,66 @@ export default function ResumeUpload({
                 </CardContent>
               </Card>
 
-                {/* Education */}
-             <Card>
-               <CardHeader>
-                 <CardTitle className="text-lg flex items-center">
-                   <GraduationCap className="w-5 h-5 mr-2" />
-                   Education
-                 </CardTitle>
-               </CardHeader>
-               <CardContent>
+              {/* Education */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center">
+                    <GraduationCap className="w-5 h-5 mr-2" />
+                    Education
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
                   {editableData.education?.map((edu, index) => (
-                   <div key={index} className="border rounded-lg p-4 mb-4 space-y-4">
-                     <div className="grid grid-cols-2 gap-4">
+                    <div key={index} className="border rounded-lg p-4 mb-4 space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                         <Label>Institution</Label>
-                         <Input
-                           value={edu.institution || ''}
-                           onChange={(e) => {
-                             const newEdu = [...editableData.education];
-                             newEdu[index] = { ...edu, institution: e.target.value };
-                             setEditableData({ ...editableData, education: newEdu });
-                           }}
-                         />
-                        </div>
-                        <div>
-                         <Label>Degree</Label>
-                         <Input
-                           value={edu.degree || ''}
-                           onChange={(e) => {
-                             const newEdu = [...editableData.education];
-                             newEdu[index] = { ...edu, degree: e.target.value };
-                             setEditableData({ ...editableData, education: newEdu });
-                           }}
+                          <Label>Institution</Label>
+                          <Input
+                            value={edu.institution || ''}
+                            onChange={(e) => {
+                              const newEdu = [...editableData.education];
+                              newEdu[index] = { ...edu, institution: e.target.value };
+                              setEditableData({ ...editableData, education: newEdu });
+                            }}
                           />
                         </div>
-                     </div>
-                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                         <Label>Field of Study</Label>
-                         <Input
-                           value={edu.field || ''}
-                           onChange={(e) => {
-                             const newEdu = [...editableData.education];
-                             newEdu[index] = { ...edu, field: e.target.value };
-                             setEditableData({ ...editableData, education: newEdu });
-                           }}
+                          <Label>Degree</Label>
+                          <Input
+                            value={edu.degree || ''}
+                            onChange={(e) => {
+                              const newEdu = [...editableData.education];
+                              newEdu[index] = { ...edu, degree: e.target.value };
+                              setEditableData({ ...editableData, education: newEdu });
+                            }}
                           />
                         </div>
-                       <div>
-                         <Label>Year</Label>
-                         <Input
-                           value={edu.year || ''}
-                           onChange={(e) => {
-                             const newEdu = [...editableData.education];
-                             newEdu[index] = { ...edu, year: e.target.value };
-                             setEditableData({ ...editableData, education: newEdu });
-                           }}
-                         />
                       </div>
-                     </div>
-                                           <div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Field of Study</Label>
+                          <Input
+                            value={edu.field || ''}
+                            onChange={(e) => {
+                              const newEdu = [...editableData.education];
+                              newEdu[index] = { ...edu, field: e.target.value };
+                              setEditableData({ ...editableData, education: newEdu });
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label>Year</Label>
+                          <Input
+                            value={edu.year || ''}
+                            onChange={(e) => {
+                              const newEdu = [...editableData.education];
+                              newEdu[index] = { ...edu, year: e.target.value };
+                              setEditableData({ ...editableData, education: newEdu });
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div>
                         <Label>Location</Label>
                         <GooglePlacesAutocomplete
                           value={edu.location || ''}
@@ -658,59 +647,59 @@ export default function ResumeUpload({
                           placeholder="Enter institution location..."
                         />
                       </div>
-                        <Button
-                          onClick={() => {
-                         const newEdu = editableData.education.filter((_, i) => i !== index);
-                         setEditableData({ ...editableData, education: newEdu });
-                          }}
-                          variant="outline"
-                          size="sm"
-                       className="text-red-600 hover:text-red-700"
-                        >
-                       <Trash2 className="w-4 h-4 mr-2" />
-                       Remove Education
-                        </Button>
-                      </div>
-                 ))}
-                        <Button
-                   onClick={() => {
-                     const newEdu = [...(editableData.education || []), {
-                       institution: '',
-                       degree: '',
-                       field: '',
-                       year: '',
-                       graduationDate: new Date(),
-                       location: '',
-                       gpa: '',
-                       honors: ''
-                     }];
-                     setEditableData({ ...editableData, education: newEdu });
-                   }}
-                          variant="outline"
-                          size="sm"
-                        >
-                   <Plus className="w-4 h-4 mr-2" />
-                   Add Education
-                        </Button>
-               </CardContent>
-             </Card>
-           </div>
+                      <Button
+                        onClick={() => {
+                          const newEdu = editableData.education.filter((_, i) => i !== index);
+                          setEditableData({ ...editableData, education: newEdu });
+                        }}
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Remove Education
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    onClick={() => {
+                      const newEdu = [...(editableData.education || []), {
+                        institution: '',
+                        degree: '',
+                        field: '',
+                        year: '',
+                        graduationDate: new Date(),
+                        location: '',
+                        gpa: '',
+                        honors: ''
+                      }];
+                      setEditableData({ ...editableData, education: newEdu });
+                    }}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Education
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
            
-           {/* Save Button at Bottom */}
-           <div className="flex justify-end pt-6 border-t">
-             <Button 
-               onClick={saveEdits} 
-               size="lg"
-               className="bg-green-600 hover:bg-green-700 text-white"
-             >
-               <Check className="w-4 h-4 mr-2" />
-               Save Changes
-             </Button>
-           </div>
-           </CardContent>
-         </Card>
-       );
-     }
+            {/* Save Button at Bottom */}
+            <div className="flex justify-end pt-6 border-t">
+              <Button 
+                onClick={saveEdits} 
+                size="lg"
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Check className="w-4 h-4 mr-2" />
+                Save Changes
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
 
     return (
       <div className="space-y-4">
@@ -720,18 +709,18 @@ export default function ResumeUpload({
             <Button onClick={startEditing} variant="outline" size="sm">
               <Edit className="w-4 h-4 mr-2" />
               Edit
-                        </Button>
+            </Button>
             <Button onClick={clearResume} variant="outline" size="sm">
               <X className="w-4 h-4 mr-2" />
               Clear
-                        </Button>
-                      </div>
-                    </div>
+            </Button>
+          </div>
+        </div>
         <StructuredResumePreview 
           resumeData={parsedData} 
           onImprove={handleResumeImprove}
         />
-                  </div>
+      </div>
     );
   }
 
@@ -762,7 +751,7 @@ export default function ResumeUpload({
           <div className="space-y-4">
             <div className="w-16 h-16 mx-auto bg-blue-100 rounded-full flex items-center justify-center">
               <Upload className="w-8 h-8 text-blue-600" />
-                        </div>
+            </div>
             <div>
               <h3 className="text-lg font-medium text-gray-900">
                 Upload your resume
@@ -770,7 +759,7 @@ export default function ResumeUpload({
               <p className="text-sm text-gray-500">
                 Drag and drop your PDF or DOCX file here, or click to browse
               </p>
-                      </div>
+            </div>
             <input
               type="file"
               id="resume-file"
@@ -778,15 +767,15 @@ export default function ResumeUpload({
               accept=".pdf,.docx"
               onChange={handleFileSelect}
             />
-                      <Button
+            <Button
               onClick={() => document.getElementById("resume-file")?.click()}
               className="mx-auto"
-                      >
+            >
               <Upload className="w-4 h-4 mr-2" />
               Choose File
-                      </Button>
-                    </div>
-                        </div>
+            </Button>
+          </div>
+        </div>
 
         {/* Additional Options */}
         <div className="text-center space-y-4">
@@ -828,7 +817,7 @@ export default function ResumeUpload({
         {showTextInput && (
           <div className="space-y-4">
             <Label htmlFor="resume-text">Paste your resume text</Label>
-              <Textarea
+            <Textarea
               id="resume-text"
               placeholder="Paste your resume content here..."
               value={resumeText}
@@ -836,14 +825,14 @@ export default function ResumeUpload({
               className="resize-none w-full h-32 max-h-96 overflow-y-auto border rounded-md p-3"
               rows={8}
             />
-              <Button
+            <Button
               onClick={handleTextSubmit}
               disabled={!resumeText.trim()}
             >
               <FileText className="w-4 h-4 mr-2" />
               Process Resume
-              </Button>
-            </div>
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>

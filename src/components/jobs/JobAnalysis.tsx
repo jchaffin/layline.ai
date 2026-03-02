@@ -1,18 +1,18 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
+import { Textarea } from "@/components/ui/Textarea";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+} from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import {
   Link,
   Globe,
@@ -21,8 +21,8 @@ import {
   CheckCircle,
   AlertTriangle,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/useToast";
+import { ScrollArea } from "@/components/ui/ScrollArea";
 
 type JobAnalysis = {
   company: string;
@@ -124,7 +124,7 @@ export default function JobAnalysis({
         console.log('Detected LinkedIn search URL, using specialized extraction');
         
         // Use the LinkedIn extraction API
-        const linkedinResponse = await fetch("/api/jobs/extract-linkedin", {
+        const linkedinResponse = await fetch("/api/jobs/analyze/linkedin/extract", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 

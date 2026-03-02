@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useRef, useEffect } from 'react';
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
 import { MapPin } from "lucide-react";
 
 // Use global Google Maps types from google-maps.d.ts

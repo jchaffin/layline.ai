@@ -1,10 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { DatePicker, DateRangePicker } from "@/components/shared/date-picker"
-import { Calendar } from "@/components/ui/calendar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { DatePicker, DateRangePicker } from "@/components/shared/DatePicker"
+import { Calendar } from "@/components/ui/Calendar"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
+import { Badge } from "@/components/ui/Badge"
 import { CalendarDays, Clock } from "lucide-react"
 
 export function CalendarDemo() {

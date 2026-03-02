@@ -1,30 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-
+import { Card, CardContent } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Navigation, type NavigationStep } from "@/components/layout/Navigation";
 import ResumeMatchAnalysis from "@/components/resume/ResumeMatchAnalysis";
-import TailoredResumesList from "@/components/resume/TailoredResumesList";
-import { Navigation, type NavigationStep } from "@/components/layout/navigation";
+import DocumentManager from "@/components/documents/DocumentManager";
+import DocumentEditView from "@/components/documents/DocumentEditView";
 import JobAnalysis from "@/components/jobs/JobAnalysis";
-import { Button } from "@/components/ui/button";
-import { CalendarDemo } from "@/components/shared/calendar-demo";
-import JobTracker from "@/components/jobs/JobTracker";
-import JobBoard from "@/components/jobs/JobBoard";
-import JobSearch from "@/components/jobs/JobSearch";
 import JobManager from "@/components/jobs/JobManager";
-import ResumeUploadWithPreview from "@/components/resume/ResumeUploadWithPreview";
-import DocumentManager from "@/components/documents/document-manager";
-import DocumentEditView from "@/components/documents/document-edit-view";
-import { useAuthenticatedStorage } from "@/hooks/use-auth-storage";
+import { useAuthenticatedStorage } from "@/hooks/useAuthStorage";
 import {
-  CheckCircle,
   FileText,
   Briefcase,
-  MessageSquare,
   Mic,
-  BarChart3,
-  FolderOpen,
   ChevronLeft,
+  CheckCircle,
+  Circle,
 } from "lucide-react";
 import type {
   ParsedResume,
@@ -35,162 +27,290 @@ export default function DashboardPage() {
   const [currentStep, setCurrentStep] = useState<NavigationStep>("dashboard");
   const [resumeData, setResumeData] = useState<ParsedResume | null>(null);
   const [jobData, setJobData] = useState<JobAnalysisType | null>(null);
-  const [isPrepComplete, setIsPrepComplete] = useState(false);
   const [isNavCollapsed, setIsNavCollapsed] = useState(false);
-
-  const [currentJobDescription, setCurrentJobDescription] = useState<
-    string | null
-  >(null);
-  const [documentsView, setDocumentsView] = useState<'grid' | 'upload' | 'edit'>('grid');
+  const [currentJobDescription, setCurrentJobDescription] = useState<string | null>(null);
+  const [documentsView, setDocumentsView] = useState<"grid" | "upload" | "edit">("grid");
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [sidebarVisibleInEditor, setSidebarVisibleInEditor] = useState(false);
 
   const storage = useAuthenticatedStorage();
 
-  // Load cached resume data on mount (now user-specific)
   useEffect(() => {
     if (storage.isAuthenticated) {
-      const cached = storage.getItem('parsedResumeData');
-      if (cached && !resumeData) {
-        setResumeData(cached);
-        console.log("Loaded user-specific resume data:", cached);
-      }
+      const cached = storage.getItem("parsedResumeData");
+      if (cached && !resumeData) setResumeData(cached);
     }
   }, [storage.isAuthenticated, resumeData]);
 
-  const handleResumeUploaded = (data: ParsedResume) => {
-    console.log("Dashboard handleResumeUploaded called with:", data);
-    setResumeData(data);
-    storage.setItem('parsedResumeData', data);
-    
-    // Force navigation to show the uploaded resume immediately
-    if (currentStep === "documents") {
-      console.log("Already on documents page, data should display");
+  const handleResumeUploaded = (data: ParsedResume | null) => {
+    if (!data) {
+      setResumeData(null);
+      storage.removeItem("parsedResumeData");
+      localStorage.removeItem("parsedResumeData");
+      return;
     }
+    setResumeData(data);
+    storage.setItem("parsedResumeData", data);
   };
 
-  const handleJobAnalyzed = ({ 
-    description, 
-    analysis 
-  }: { 
-    description: string; 
+  const handleJobAnalyzed = ({
+    description,
+    analysis,
+  }: {
+    description: string;
     analysis: JobAnalysisType;
   }) => {
     setJobData(analysis);
     setCurrentJobDescription(description);
-    storage.setItem('currentJobAnalysis', { description, analysis });
+    storage.setItem("currentJobAnalysis", { description, analysis });
   };
 
-  const renderCurrentStep = () => {
-    const baseProps = {
-      resumeData,
-      onResumeUploaded: handleResumeUploaded,
-    };
-
+  const renderStep = () => {
     switch (currentStep) {
       case "dashboard":
+        return <HomeView resumeData={resumeData} onNavigate={setCurrentStep} />;
+
+      case "documents":
+        if (documentsView === "edit" && selectedDocument) {
+          return (
+            <DocumentEditView
+              document={selectedDocument}
+              onBack={() => { setDocumentsView("grid"); setSelectedDocument(null); setIsNavCollapsed(false); setSidebarVisibleInEditor(false); }}
+              onSave={(data: any) => {
+                if (data) {
+                  storage.setItem("parsedResumeData", data);
+                  selectedDocument.data = data;
+                }
+              }}
+              onToggleSidebar={() => {
+                const next = !sidebarVisibleInEditor;
+                setSidebarVisibleInEditor(next);
+                if (next) setIsNavCollapsed(false);
+              }}
+              sidebarVisible={sidebarVisibleInEditor}
+            />
+          );
+        }
         return (
-          <div className="max-w-7xl mx-auto space-y-8">
-            <div className="text-center mb-12">
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">
-                Welcome to Your Dashboard
-              </h1>
-              <p className="text-xl text-gray-600 mb-8">
-                Your AI-powered job search and interview preparation platform
-              </p>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-              <Button
-                onClick={() => setCurrentStep("documents")}
-                className="h-24 flex flex-col items-center justify-center space-y-2 bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <FileText className="w-8 h-8" />
-                <span className="text-lg font-medium">Upload Resume</span>
-              </Button>
-              <Button
-                onClick={() => setCurrentStep("jobs")}
-                className="h-24 flex flex-col items-center justify-center space-y-2 bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Briefcase className="w-8 h-8" />
-                <span className="text-lg font-medium">Find Jobs</span>
-              </Button>
-              <Button
-                onClick={() => setCurrentStep("prep")}
-                disabled={!resumeData}
-                className="h-24 flex flex-col items-center justify-center space-y-2 bg-purple-600 hover:bg-purple-700 text-white disabled:bg-gray-300"
-              >
-                <MessageSquare className="w-8 h-8" />
-                <span className="text-lg font-medium">Start Prep</span>
-              </Button>
-            </div>
-
-            {/* Status Cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="bg-white p-6 rounded-lg border border-gray-200">
-                <h3 className="font-semibold text-gray-900 mb-4">
-                  Get Started
-                </h3>
-                <div className="space-y-3">
-                  {!resumeData ? (
-                    <div className="flex items-center space-x-3 text-sm">
-                      <div className="w-4 h-4 border-2 border-gray-300 rounded-full"></div>
-                      <span className="text-gray-600">Upload your resume</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-3 text-sm">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span className="text-gray-600">Resume uploaded</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg border border-gray-200">
-                <h3 className="font-semibold text-gray-900 mb-4">
-                  Recent Activity
-                </h3>
-                <div className="space-y-3">
-                  {resumeData ? (
-                    <div className="flex items-center space-x-3 text-sm">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span className="text-gray-600">
-                        Resume uploaded and processed
-                      </span>
-                      <span className="text-gray-400">Just now</span>
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-sm">No recent activity</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <Section title="Documents">
+            <DocumentManager
+              currentResume={resumeData}
+              onNavigateToEdit={(doc: any) => {
+                setSelectedDocument(doc);
+                setDocumentsView("edit");
+                setIsNavCollapsed(true);
+              }}
+              onDocumentDeleted={() => handleResumeUploaded(null)}
+              onFileUploaded={handleResumeUploaded}
+            />
+          </Section>
         );
 
-      // ... rest of the cases remain the same
+      case "jobs":
+      case "job-board":
+        return (
+          <Section title="Jobs">
+            <JobManager />
+          </Section>
+        );
+
+      case "insights":
+        return (
+          <Section title="Job Analysis">
+            <div className="space-y-6">
+              <JobAnalysis onJobAnalyzed={handleJobAnalyzed} />
+              {resumeData && jobData && (
+                <ResumeMatchAnalysis
+                  resumeData={resumeData}
+                  jobDescription={currentJobDescription || undefined}
+                  companyName={jobData?.company}
+                  roleTitle={jobData?.role}
+                />
+              )}
+            </div>
+          </Section>
+        );
+
+      case "interview":
+      case "live-interview":
+      case "mock-interview":
+        return (
+          <Section title="Interview Practice">
+            <Card>
+              <CardContent className="p-8 text-center space-y-4">
+                <Mic className="w-10 h-10 mx-auto text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  Voice-powered interview practice with AI interviewers
+                </p>
+                <Button asChild>
+                  <a href="/interview">Go to Interview</a>
+                </Button>
+              </CardContent>
+            </Card>
+          </Section>
+        );
+
       default:
-        return <div>Step not implemented</div>;
+        return null;
     }
   };
 
+  const isEditingDocument = documentsView === "edit" && !!selectedDocument;
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navigation
-        currentStep={currentStep}
-        onStepChange={setCurrentStep}
-        completedSteps={resumeData ? ["documents"] : []}
-        resumeReady={!!resumeData}
-        prepComplete={isPrepComplete}
-        isCollapsed={isNavCollapsed}
-        onToggleCollapse={setIsNavCollapsed}
-      />
-      
-      <main className={`transition-all duration-300 ${
-        isNavCollapsed ? 'lg:ml-16' : 'lg:ml-64'
-      } p-8`}>
-        {renderCurrentStep()}
+    <div className="min-h-screen bg-background">
+      {(!isEditingDocument || sidebarVisibleInEditor) && (
+        <Navigation
+          currentStep={currentStep}
+          onStepChange={(step) => {
+            setCurrentStep(step);
+            if (isEditingDocument) {
+              setDocumentsView("grid");
+              setSelectedDocument(null);
+              setIsNavCollapsed(false);
+              setSidebarVisibleInEditor(false);
+            }
+          }}
+          completedSteps={resumeData ? ["documents"] : []}
+          resumeReady={!!resumeData}
+          isCollapsed={isNavCollapsed}
+          onToggleCollapse={setIsNavCollapsed}
+          hideCollapseToggle={isEditingDocument && sidebarVisibleInEditor}
+        />
+      )}
+      <main
+        className={`transition-all duration-200 ${
+          isEditingDocument ? "" : isNavCollapsed ? "lg:ml-16" : "lg:ml-56"
+        } p-6`}
+      >
+        {renderStep()}
       </main>
+    </div>
+  );
+}
+
+function HomeView({
+  resumeData,
+  onNavigate,
+}: {
+  resumeData: ParsedResume | null;
+  onNavigate: (step: NavigationStep) => void;
+}) {
+  const steps = [
+    {
+      done: !!resumeData,
+      label: "Upload your resume",
+      action: () => onNavigate("documents"),
+    },
+    {
+      done: false,
+      label: "Add a job description",
+      action: () => onNavigate("insights"),
+    },
+    {
+      done: false,
+      label: "Practice an interview",
+      action: () => onNavigate("interview"),
+    },
+  ];
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <p className="text-muted-foreground mt-1">
+          Upload a resume, find a job, and start practicing.
+        </p>
+      </div>
+
+      {/* Quick actions */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <ActionCard
+          icon={FileText}
+          label="Resume"
+          onClick={() => onNavigate("documents")}
+        />
+        <ActionCard
+          icon={Briefcase}
+          label="Jobs"
+          onClick={() => onNavigate("jobs")}
+        />
+        <ActionCard
+          icon={Mic}
+          label="Interview"
+          onClick={() => onNavigate("interview")}
+        />
+      </div>
+
+      {/* Checklist */}
+      <Card>
+        <CardContent className="p-5 space-y-3">
+          <h3 className="text-sm font-semibold">Get started</h3>
+          {steps.map((s, i) => (
+            <button
+              key={i}
+              onClick={s.action}
+              className="flex items-center gap-3 w-full text-left text-sm hover:bg-muted/50 rounded-md px-2 py-1.5 -mx-2 transition-colors"
+            >
+              {s.done ? (
+                <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+              ) : (
+                <Circle className="w-4 h-4 text-muted-foreground shrink-0" />
+              )}
+              <span className={s.done ? "text-muted-foreground line-through" : ""}>
+                {s.label}
+              </span>
+            </button>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function ActionCard({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: typeof FileText;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col items-center gap-2 p-6 rounded-xl border bg-card hover:bg-accent transition-colors"
+    >
+      <Icon className="w-6 h-6 text-muted-foreground" />
+      <span className="text-sm font-medium">{label}</span>
+    </button>
+  );
+}
+
+function Section({
+  title,
+  back,
+  action,
+  children,
+}: {
+  title: string;
+  back?: () => void;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div className="flex items-center gap-3">
+        {back && (
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={back}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+        )}
+        <h2 className="text-xl font-bold flex-1">{title}</h2>
+        {action}
+      </div>
+      {children}
     </div>
   );
 }

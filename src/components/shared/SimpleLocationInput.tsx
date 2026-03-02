@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
+import { COMMON_LOCATIONS } from '@/lib/constants';
 
 interface SimpleLocationInputProps {
   value: string;
@@ -15,39 +16,6 @@ interface SimpleLocationInputProps {
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   disabled?: boolean;
 }
-
-const COMMON_LOCATIONS = [
-  'New York, NY',
-  'Los Angeles, CA',
-  'Chicago, IL',
-  'Houston, TX',
-  'Phoenix, AZ',
-  'Philadelphia, PA',
-  'San Antonio, TX',
-  'San Diego, CA',
-  'Dallas, TX',
-  'Austin, TX',
-  'San Jose, CA',
-  'Fort Worth, TX',
-  'Jacksonville, FL',
-  'Charlotte, NC',
-  'Seattle, WA',
-  'Denver, CO',
-  'Washington, DC',
-  'Boston, MA',
-  'Nashville, TN',
-  'Detroit, MI',
-  'Portland, OR',
-  'Memphis, TN',
-  'Las Vegas, NV',
-  'Louisville, KY',
-  'Baltimore, MD',
-  'Milwaukee, WI',
-  'Atlanta, GA',
-  'Remote',
-  'Anywhere',
-  'USA'
-];
 
 export function SimpleLocationInput({
   value,

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { seedEducationData } from '@/lib/seed-education';
-import { fetchAndSeedInstitutions } from '@/lib/fetch-institutions';
+import { seedEducationData } from '@/lib/seedEducation';
+import { fetchAndSeedInstitutions } from '@/lib/fetchInstitutions';
 
 export async function POST(request: Request) {
   try {

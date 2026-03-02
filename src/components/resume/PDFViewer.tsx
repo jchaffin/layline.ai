@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import { 
   Download, 
   Printer,
@@ -12,8 +12,7 @@ import {
   Edit
 } from "lucide-react";
 
-// Use local worker file
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 type Props = {
   pdfUrl?: string;

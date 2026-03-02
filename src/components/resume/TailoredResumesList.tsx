@@ -1,16 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+} from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { ScrollArea } from "@/components/ui/ScrollArea";
 import {
   FileText,
   Download,
@@ -22,16 +22,16 @@ import {
   CloudOff,
   Eye,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/useToast";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { ResumeStyleSelector } from "@/components/resume/resume-style-selector";
-import StructuredResumePreview from "@/components/resume/structured-resume-preview";
+} from "@/components/ui/Dialog";
+import { ResumeStyleSelector } from "@/components/resume/ResumeStyleSelector";
+import StructuredResumePreview from "@/components/resume/StructuredResumePreview";
 
 interface TailoredResume {
   key: string;

@@ -18,7 +18,7 @@ const s3Client = new S3Client({
 
 export async function POST(request: NextRequest) {
   try {
-    const { resumeData, jobDescription, companyName, roleTitle } = await request.json();
+    const { resumeData, jobDescription, companyName, roleTitle, originalKey } = await request.json();
 
     if (!resumeData || !jobDescription) {
       return NextResponse.json(
@@ -109,6 +109,7 @@ Create a perfectly tailored version that maximizes match percentage while stayin
           companyName: companyName || 'Unknown Company',
           roleTitle: roleTitle || 'Unknown Role',
           createdAt: new Date().toISOString(),
+          originalKey: originalKey || null,
           originalResume: resumeData,
           tailoredResume: tailoredData,
           jobDescription: jobDescription,
@@ -126,6 +127,7 @@ Create a perfectly tailored version that maximizes match percentage while stayin
             company: companyName || 'unknown',
             role: roleTitle || 'unknown',
             timestamp: Date.now().toString(),
+            ...(originalKey && { originalkey: originalKey }),
           },
         });
 

@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { QueryProvider } from '@/lib/query-provider'
-import { ThemeProvider } from '@/components/layout/theme-provider'
-import { Toaster } from '@/components/ui/toaster'
+import { QueryProvider } from '@/lib/queryProvider'
+import { ThemeProvider } from '@/components/layout/ThemeProvider'
+import { Toaster } from '@/components/ui/Toaster'
 import AuthSessionProvider from '@/components/providers/SessionProvider'
-import '@/lib/clear-legacy-data' // Clear legacy data on app load
+import '@/lib/clearLegacyData' // Clear legacy data on app load
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -25,7 +25,7 @@ export default function RootLayout({
         <script
           async
           defer
-          src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'GOOGLE_MAPS_API_KEY'}&libraries=places`}
+          src={`https://maps.googleapis.com/maps/api/js?key=${process.env.GOOGLE_MAPS_API_KEY || 'GOOGLE_MAPS_API_KEY'}&libraries=places`}
         ></script>
       </head>
       <body className={inter.className}>

@@ -1,19 +1,19 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Input } from "@/components/ui/input";
-import { GooglePlacesAutocomplete } from "@/components/shared/auto-complete";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/Input";
+import { GooglePlacesAutocomplete } from "@/components/shared/AutoComplete";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { ScrollArea } from "@/components/ui/ScrollArea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/ui/Select";
 import {
   Search,
   MapPin,
@@ -43,7 +43,7 @@ import {
   Target,
   Sliders,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/useToast";
 
 interface Job {
   id: string;
@@ -223,7 +223,7 @@ export default function JobSearch({ onJobSelect }: JobSearchProps) {
     setIsExtractingLinkedin(true);
 
     try {
-      const response = await fetch('/api/jobs/extract-linkedin', {
+      const response = await fetch('/api/jobs/analyze/linkedin/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: linkedinUrl.trim() }),

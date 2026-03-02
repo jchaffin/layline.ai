@@ -249,15 +249,16 @@ input[type="password"],
 input[type="search"],
 textarea,
 select {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  border: 2px solid #e2e8f0 !important;
-  border-radius: 12px !important;
-  padding: 14px 18px !important;
-  background: #ffffff !important;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
-  font-size: 16px !important;
+  transition: all 0.2s ease !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 8px !important;
+  padding: 14px 16px !important;
+  background: hsl(var(--muted)) !important;
+  box-shadow: none !important;
+  font-size: 15px !important;
   line-height: 1.5 !important;
-  color: #1a202c !important;
+  color: hsl(var(--foreground)) !important;
 }
 
 input[type="text"]:focus,
@@ -268,10 +269,9 @@ input[type="search"]:focus,
 textarea:focus,
 select:focus {
   outline: none !important;
-  border-color: #3b82f6 !important;
-  background: #ffffff !important;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1), 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
-  transform: translateY(-2px) !important;
+  border-bottom-color: #22c55e !important;
+  background: hsl(var(--muted)) !important;
+  box-shadow: none !important;
 }
 
 input[type="text"]:hover:not(:focus),
@@ -281,9 +281,7 @@ input[type="password"]:hover:not(:focus),
 input[type="search"]:hover:not(:focus),
 textarea:hover:not(:focus),
 select:hover:not(:focus) {
-  border-color: #cbd5e0 !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-  transform: translateY(-1px) !important;
+  border-bottom-color: #cbd5e0 !important;
 }
 
 input::placeholder,
@@ -294,7 +292,6 @@ textarea::placeholder {
 
 textarea {
   resize: vertical !important;
-  min-height: 100px !important;
   font-family: inherit !important;
 }
 

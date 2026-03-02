@@ -4,20 +4,20 @@ import * as React from "react";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@/components/ui/Popover";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/ui/Select";
 
 interface SimpleDatePickerProps {
   value?: Date;
@@ -28,20 +28,13 @@ interface SimpleDatePickerProps {
   allowFuture?: boolean;
 }
 
-const MONTHS = [
-  { value: "01", label: "January" },
-  { value: "02", label: "February" },
-  { value: "03", label: "March" },
-  { value: "04", label: "April" },
-  { value: "05", label: "May" },
-  { value: "06", label: "June" },
-  { value: "07", label: "July" },
-  { value: "08", label: "August" },
-  { value: "09", label: "September" },
-  { value: "10", label: "October" },
-  { value: "11", label: "November" },
-  { value: "12", label: "December" },
-];
+import { MONTHS } from "@/lib/constants";
+
+function toDate(v: Date | string | undefined): Date | undefined {
+  if (!v) return undefined;
+  const d = v instanceof Date ? v : new Date(v);
+  return isNaN(d.getTime()) ? undefined : d;
+}
 
 export default function SimpleDatePicker({
   value,
@@ -51,6 +44,7 @@ export default function SimpleDatePicker({
   className,
   allowFuture = true,
 }: SimpleDatePickerProps) {
+  const safeValue = toDate(value);
   const [isOpen, setIsOpen] = React.useState(false);
   const [selectedMonth, setSelectedMonth] = React.useState<string>("");
   const [selectedYear, setSelectedYear] = React.useState<string>("");
@@ -67,14 +61,14 @@ export default function SimpleDatePicker({
   }, [currentYear, allowFuture]);
 
   React.useEffect(() => {
-    if (value) {
-      setSelectedMonth(format(value, "MM"));
-      setSelectedYear(format(value, "yyyy"));
+    if (safeValue) {
+      setSelectedMonth(format(safeValue, "MM"));
+      setSelectedYear(format(safeValue, "yyyy"));
     } else {
       setSelectedMonth("");
       setSelectedYear("");
     }
-  }, [value]);
+  }, [safeValue?.getTime()]);
 
   const handleSelect = () => {
     if (!selectedMonth || !selectedYear) return;
@@ -94,7 +88,7 @@ export default function SimpleDatePicker({
     setIsOpen(false);
   };
 
-  const displayValue = value ? format(value, "MMM yyyy") : "";
+  const displayValue = safeValue ? format(safeValue, "MMM yyyy") : "";
 
   return (
     <div className={cn("relative", className)}>
@@ -104,7 +98,7 @@ export default function SimpleDatePicker({
             variant="outline"
             className={cn(
               "w-full justify-start text-left font-normal",
-              !value && "text-muted-foreground"
+              !safeValue && "text-muted-foreground"
             )}
             disabled={disabled}
           >
@@ -159,7 +153,7 @@ export default function SimpleDatePicker({
               >
                 Select
               </Button>
-              {value && (
+              {safeValue && (
                 <Button
                   variant="outline"
                   onClick={handleClear}
