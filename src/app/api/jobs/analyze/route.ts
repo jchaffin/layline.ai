@@ -1,83 +1,88 @@
 import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@/lib/api/openai";
+import pdfParse from "@jchaffin/pdf-parse";
+import { computeMatchScore } from "@/lib/resumeJobMatch";
+import type { ParsedResume } from "@/lib/schema";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.text();
-    let parsedBody;
+    const contentType = request.headers.get("content-type") || "";
+    let description: string | undefined;
+    let url: string | undefined;
+    let jobDescription: string | undefined;
+    let resume: ParsedResume | undefined;
 
-    try {
-      parsedBody = JSON.parse(body);
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON format in request body" },
-        { status: 400 }
-      );
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      const file = formData.get("file") as File | null;
+      const resumeJson = formData.get("resume") as string | null;
+
+      if (resumeJson) {
+        try { resume = JSON.parse(resumeJson); } catch {}
+      }
+
+      if (file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+          const data = await pdfParse(buffer);
+          description = data.text;
+        } else {
+          description = buffer.toString("utf-8");
+        }
+      }
+
+      description = description || (formData.get("description") as string) || undefined;
+      url = (formData.get("url") as string) || undefined;
+    } else {
+      const body = await request.text();
+      let parsedBody;
+      try {
+        parsedBody = JSON.parse(body);
+      } catch {
+        return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+      }
+      description = parsedBody.description;
+      url = parsedBody.url;
+      jobDescription = parsedBody.jobDescription;
+      resume = parsedBody.resume;
     }
-
-    const { description, url, jobDescription } = parsedBody;
 
     let jobDescriptionText = description || jobDescription;
 
     if (url && !jobDescriptionText) {
       try {
-        const fetchResponse = await fetch(url, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-          },
-        });
+        let fetchUrl = url;
+        const headers = {
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml",
+          "Accept-Language": "en-US,en;q=0.9",
+        };
 
-        if (!fetchResponse.ok) {
-          throw new Error(`HTTP ${fetchResponse.status}`);
+        if (url.includes("linkedin.com")) {
+          const jobIdMatch = url.match(/currentJobId=(\d+)/) || url.match(/jobs\/view\/[^/]*?(\d{8,})/) || url.match(/jobs\/view\/(\d+)/);
+          if (jobIdMatch) {
+            fetchUrl = `https://www.linkedin.com/jobs/view/${jobIdMatch[1]}`;
+          }
         }
 
+        const fetchResponse = await fetch(fetchUrl, { headers });
+        if (!fetchResponse.ok) throw new Error(`HTTP ${fetchResponse.status}`);
         const htmlContent = await fetchResponse.text();
 
-        if (
-          url.includes("linkedin.com/jobs/search") &&
-          url.includes("currentJobId")
-        ) {
-          const jobIdMatch = url.match(/currentJobId=(\d+)/);
-          if (jobIdMatch) {
-            const jobId = jobIdMatch[1];
-            const jobTitleMatch = htmlContent.match(
-              /<h3[^>]*>([^<]+)<\/h3>/gi
-            );
-            const companyMatch = htmlContent.match(
-              /<h4[^>]*>([^<]+)<\/h4>/gi
-            );
-            const locationMatch = htmlContent.match(
-              /([A-Za-z\s,]+),\s*[A-Z]{2}\s*\d+\s*hours?\s*ago/gi
-            );
-
-            if (jobTitleMatch && jobTitleMatch.length > 0) {
-              const jobTitle = jobTitleMatch[0]
-                .replace(/<[^>]*>/g, "")
-                .trim();
-              const company =
-                companyMatch && companyMatch.length > 0
-                  ? companyMatch[0].replace(/<[^>]*>/g, "").trim()
-                  : "Company not specified";
-              const location =
-                locationMatch && locationMatch.length > 0
-                  ? locationMatch[0].replace(/<[^>]*>/g, "").trim()
-                  : "Location not specified";
-
-              jobDescriptionText = `
-Job Title: ${jobTitle}
-Company: ${company}
-Location: ${location}
-Job ID: ${jobId}
-
-This job was extracted from LinkedIn search results. For a complete job description, please visit the original LinkedIn posting or copy the full job description manually.
-
-To get the full job details, please:
-1. Click on the job title on LinkedIn
-2. Copy the complete job description
-3. Paste it into the job analysis form
-              `.trim();
-            }
+        if (fetchUrl.includes("linkedin.com")) {
+          const descMatch = htmlContent.match(
+            /class="show-more-less-html__markup[^"]*"[^>]*>([\s\S]*?)<\/div>/,
+          );
+          if (descMatch) {
+            jobDescriptionText = descMatch[1]
+              .replace(/<[^>]*>/g, " ")
+              .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+              .replace(/&quot;/g, '"').replace(/&#x27;/g, "'")
+              .replace(/\s+/g, " ")
+              .trim();
           }
         }
 
@@ -89,19 +94,13 @@ To get the full job details, please:
             .replace(/\s+/g, " ")
             .trim();
 
-          if (textContent.length < 100) {
-            throw new Error("Insufficient content extracted");
-          }
-
+          if (textContent.length < 100) throw new Error("Insufficient content extracted");
           jobDescriptionText = textContent;
         }
       } catch {
         return NextResponse.json(
-          {
-            error:
-              "Could not fetch job description from URL. Please copy and paste the job description manually.",
-          },
-          { status: 400 }
+          { error: "Could not fetch job description from URL." },
+          { status: 400 },
         );
       }
     }
@@ -136,9 +135,17 @@ To get the full job details, please:
   "location": "City, State",
   "workType": "Remote/Hybrid/Onsite",
   "companyInfo": "Brief company description",
+  "interviewProcess": [
+    {"step": 1, "name": "Recruiter Screen", "duration": "15 min"},
+    {"step": 2, "name": "Hiring Manager Screen", "duration": "30 min"},
+    {"step": 3, "name": "Technical Screen", "duration": "60 min"},
+    {"step": 4, "name": "Work Trial", "duration": "1-2 days"}
+  ],
   "keywords": ["keyword1", "keyword2"],
   "sentiment": 0.8
-}`,
+}
+
+For "interviewProcess", extract the EXACT interview steps mentioned in the job description using their actual names and durations. If no interview process is described, return an empty array.`,
         },
         {
           role: "user",
@@ -152,11 +159,50 @@ To get the full job details, please:
       completion.choices[0].message.content || "{}"
     );
 
-    return NextResponse.json({
-      description: cleanDescription,
-      url: url || undefined,
-      analysis,
-    });
+    const allSkills = [
+      ...(analysis.requiredSkills || []),
+      ...(analysis.preferredSkills || []),
+    ];
+
+    const descParts: string[] = [];
+    if (analysis.companyInfo) descParts.push(analysis.companyInfo);
+    if (analysis.experience) descParts.push(`Experience: ${analysis.experience}`);
+    descParts.push(cleanDescription);
+
+    const job = {
+      id: `uploaded-${Date.now()}`,
+      title: analysis.role || "Untitled Role",
+      company: analysis.company || "Unknown Company",
+      location: analysis.location || "",
+      description: descParts.join("\n\n"),
+      url: url || "",
+      posted: new Date().toISOString(),
+      job_posted_at_datetime_utc: new Date().toISOString(),
+      salary: null as string | null,
+      type: analysis.workType || "Full-time",
+      job_is_remote: (analysis.workType || "").toLowerCase().includes("remote"),
+      source: "Uploaded",
+      tags: allSkills.length > 0 ? allSkills : (analysis.keywords || []),
+      job_highlights: {
+        Qualifications: analysis.qualifications || [],
+        Responsibilities: analysis.responsibilities || [],
+        Benefits: [] as string[],
+      },
+      matchScore: undefined as number | undefined,
+      matchReasons: undefined as string[] | undefined,
+      matchedSkills: undefined as string[] | undefined,
+      missingSkills: undefined as string[] | undefined,
+    };
+
+    if (resume) {
+      const { score, reasons, matchedSkills, missingSkills } = computeMatchScore(resume, job);
+      job.matchScore = score;
+      job.matchReasons = reasons;
+      job.matchedSkills = matchedSkills;
+      job.missingSkills = missingSkills;
+    }
+
+    return NextResponse.json({ job, analysis });
   } catch (error) {
     console.error("Job analysis error:", error);
     return NextResponse.json(

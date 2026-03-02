@@ -1,90 +1,61 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-
-// Import the shared storage from the main route
-import { jobApplications } from '../route';
-
-const updateStatusSchema = z.object({
-  status: z.enum(['applied', 'in-progress', 'rejected', 'offered']),
-});
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { db } from "@/lib/db";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
+    const session = await getServerSession(authOptions);
+    const userId = (session?.user as any)?.id as string | undefined;
     const body = await request.json();
-    
-    console.log('PATCH request received:', { id, body, totalApplications: jobApplications.length });
-    
-    // Validate the request body
-    const { status } = updateStatusSchema.parse(body);
-    
-    const applicationIndex = jobApplications.findIndex(app => app.id === id);
-    console.log('Found application at index:', applicationIndex);
-    
-    if (applicationIndex === -1) {
-      console.log('Available application IDs:', jobApplications.map(app => app.id));
-      return NextResponse.json(
-        { error: 'Job application not found' },
-        { status: 404 }
-      );
+
+    const existing = await db.jobApplication.findUnique({ where: { id } });
+    if (!existing || (existing.userId && existing.userId !== userId)) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    
-    // Update the application
-    const updatedApp = {
-      ...jobApplications[applicationIndex],
-      status,
-      lastUpdated: new Date(),
-    };
-    
-    jobApplications[applicationIndex] = updatedApp;
-    console.log('Application updated successfully:', updatedApp);
-    
-    return NextResponse.json(updatedApp);
+
+    const updated = await db.jobApplication.update({
+      where: { id },
+      data: {
+        ...(body.status !== undefined && { status: body.status }),
+        ...(body.notes !== undefined && { notes: body.notes }),
+        ...(body.location !== undefined && { location: body.location }),
+        ...(body.salaryRange !== undefined && { salaryRange: body.salaryRange }),
+        ...(body.description !== undefined && { description: body.description }),
+        ...(body.analysis !== undefined && { analysis: body.analysis }),
+        lastUpdated: new Date(),
+      },
+    });
+
+    return NextResponse.json(updated);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      console.error('Validation error:', error.issues);
-      return NextResponse.json(
-        { error: 'Invalid input', details: error.issues },
-        { status: 400 }
-      );
-    }
-    
-    console.error('Error updating job application:', error);
-    return NextResponse.json(
-      { error: 'Failed to update job application' },
-      { status: 500 }
-    );
+    console.error("Error updating application:", error);
+    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
-    
-    const applicationIndex = jobApplications.findIndex(app => app.id === id);
-    
-    if (applicationIndex === -1) {
-      return NextResponse.json(
-        { error: 'Job application not found' },
-        { status: 404 }
-      );
+    const session = await getServerSession(authOptions);
+    const userId = (session?.user as any)?.id as string | undefined;
+
+    const existing = await db.jobApplication.findUnique({ where: { id } });
+    if (!existing || (existing.userId && existing.userId !== userId)) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    
-    // Remove the application
-    jobApplications.splice(applicationIndex, 1);
-    
-    return NextResponse.json({ message: 'Job application deleted successfully' });
+
+    await db.jobApplication.delete({ where: { id } });
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting job application:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete job application' },
-      { status: 500 }
-    );
+    console.error("Error deleting application:", error);
+    return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
   }
 }

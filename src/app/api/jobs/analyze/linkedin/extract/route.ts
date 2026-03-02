@@ -59,43 +59,70 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Fetch MCP server implementation for LinkedIn job scraping
+async function fetchViaScrapeless(url: string): Promise<string | null> {
+  const apiKey = process.env.SCRAPELESS_API_KEY;
+  if (!apiKey) return null;
+
+  const res = await fetch('https://api.scrapeless.com/api/v1/scraper/request', {
+    method: 'POST',
+    headers: { 'x-api-token': apiKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ actor: 'scraper.universal', input: { url, render: true } }),
+  });
+
+  if (res.status === 200) {
+    const data = await res.json();
+    return typeof data === 'string' ? data : data?.html || data?.body || JSON.stringify(data);
+  }
+
+  if (res.status === 201) {
+    const { taskId } = await res.json();
+    for (let i = 0; i < 10; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const poll = await fetch(
+        `https://api.scrapeless.com/api/v1/scraper/result/${taskId}`,
+        { headers: { 'x-api-token': apiKey, 'Content-Type': 'application/json' } },
+      );
+      if (poll.status === 200) {
+        const data = await poll.json();
+        return typeof data === 'string' ? data : data?.html || data?.body || JSON.stringify(data);
+      }
+    }
+  }
+
+  return null;
+}
+
 async function scrapeLinkedInJob(url: string, jobId: string) {
   try {
-    console.log('Starting fetch MCP server scraping for:', url);
+    let htmlContent: string | null = null;
 
-    // Configure headers to mimic a real browser request
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.5',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'DNT': '1',
-      'Connection': 'keep-alive',
-      'Upgrade-Insecure-Requests': '1',
-      'Sec-Fetch-Dest': 'document',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': 'none',
-      'Cache-Control': 'max-age=0'
-    };
-
-    // Fetch the LinkedIn job page using fetch MCP server approach
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: headers,
-      redirect: 'follow'
-    });
-
-    if (!response.ok) {
-      console.error('Failed to fetch LinkedIn page:', response.status, response.statusText);
-      return {
-        success: false,
-        error: `Failed to fetch LinkedIn page: ${response.status} ${response.statusText}`
-      };
+    if (process.env.SCRAPELESS_API_KEY) {
+      console.log('Scraping LinkedIn job via Scrapeless:', url);
+      htmlContent = await fetchViaScrapeless(url);
     }
 
-    const htmlContent = await response.text();
-    console.log('Successfully fetched LinkedIn page, content length:', htmlContent.length);
+    if (!htmlContent) {
+      console.log('Scraping LinkedIn job via direct fetch:', url);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+        },
+        redirect: 'follow',
+      });
+      if (response.ok) htmlContent = await response.text();
+    }
+
+    if (!htmlContent) {
+      return { success: false, error: 'Failed to fetch LinkedIn page' };
+    }
+
+    console.log('LinkedIn page content length:', htmlContent.length);
 
     // Parse the HTML content to extract job data
     const extractedData = parseLinkedInJobHTML(htmlContent, jobId, url);

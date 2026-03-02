@@ -110,7 +110,7 @@ export default function DashboardPage() {
       case "job-board":
         return (
           <Section title="Jobs">
-            <JobManager />
+            <JobManager resumeData={resumeData} />
           </Section>
         );
 

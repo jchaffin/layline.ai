@@ -47,108 +47,104 @@ export function GooglePlacesAutocomplete({
   disabled = false,
 }: GooglePlacesAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
-  const [autocompleteService, setAutocompleteService] = useState<any>(null);
+  const serviceRef = useRef<google.maps.places.AutocompleteService | null>(null);
 
   const [suggestions, setSuggestions] = useState<GooglePlacePrediction[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
 
-  // Load Google Maps API
   useEffect(() => {
-    if (window.google) {
-      initializeServices();
+    const tryInit = () => {
+      if (serviceRef.current) return;
+      if (window.google?.maps?.places?.AutocompleteService) {
+        serviceRef.current = new window.google.maps.places.AutocompleteService();
+      }
+    };
+
+    tryInit();
+    if (!serviceRef.current) {
+      const poll = setInterval(() => {
+        tryInit();
+        if (serviceRef.current) clearInterval(poll);
+      }, 200);
+      return () => clearInterval(poll);
+    }
+  }, []);
+
+  const fetchSuggestions = (query: string) => {
+    if (!query || query.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
       return;
     }
 
-    // Create callback function
-    window.initGoogleMaps = () => {
-      initializeServices();
-    };
-
-    // Load Google Maps script
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}&libraries=places&callback=initGoogleMaps`;
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
-
-    return () => {
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
-    };
-  }, []);
-
-  const initializeServices = () => {
-    if (window.google && window.google.maps && window.google.maps.places) {
-      if (window.google.maps.places.AutocompleteService) {
-        console.log('Using Google Places AutocompleteService API');
-        const autocomplete = new window.google.maps.places.AutocompleteService();
-        setAutocompleteService(autocomplete);
-        setIsGoogleLoaded(true);
-      }
+    if (serviceRef.current) {
+      serviceRef.current.getPlacePredictions(
+        {
+          input: query,
+          types: ['(cities)'],
+          componentRestrictions: { country: 'us' },
+        },
+        (predictions, status) => {
+          if (status === 'OK' && predictions && predictions.length > 0) {
+            setSuggestions(
+              predictions.map((p) => ({
+                place_id: p.place_id,
+                description: p.description,
+                structured_formatting: p.structured_formatting
+                  ? { main_text: p.structured_formatting.main_text, secondary_text: p.structured_formatting.secondary_text }
+                  : undefined,
+              })),
+            );
+            setShowSuggestions(true);
+            setSelectedIndex(-1);
+          } else {
+            fallbackSuggestions(query);
+          }
+        },
+      );
+    } else {
+      fallbackSuggestions(query);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    onChange(newValue);
-    
-    if (!isGoogleLoaded) {
-      return;
-    }
-
-    // Show suggestions based on input
-    if (newValue.length >= 2) {
-      fetchPlaceSuggestions(newValue);
+  const fallbackSuggestions = (query: string) => {
+    const cities = filterCities(query);
+    if (cities.length > 0) {
+      setSuggestions(
+        cities.map((c) => ({
+          place_id: c,
+          description: c,
+          structured_formatting: {
+            main_text: c.split(',')[0],
+            secondary_text: c.split(',').slice(1).join(',').trim(),
+          },
+        })),
+      );
+      setShowSuggestions(true);
+      setSelectedIndex(-1);
     } else {
       setSuggestions([]);
       setShowSuggestions(false);
     }
   };
 
-  const fetchPlaceSuggestions = async (query: string) => {
-    try {
-      if (autocompleteService) {
-        const request = {
-          input: query,
-          types: ['(cities)'], // Focus on cities
-          componentRestrictions: { country: 'us' }, // US only for now
-        };
-
-        autocompleteService.getPlacePredictions(request, (predictions: any[], status: any) => {
-          if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-            setSuggestions(predictions);
-            setShowSuggestions(true);
-            setSelectedIndex(-1);
-          } else {
-            setSuggestions([]);
-            setShowSuggestions(false);
-          }
-        });
-      }
-    } catch (error) {
-      console.warn('Places API request failed:', error);
-      setSuggestions([]);
-      setShowSuggestions(false);
-    }
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    onChange(v);
+    fetchSuggestions(v);
   };
 
-  const handleSuggestionClick = (suggestion: GooglePlacePrediction) => {
-    const description = suggestion.description;
-    onChange(description);
+  const handleSelect = (suggestion: GooglePlacePrediction) => {
+    onChange(suggestion.description);
     setShowSuggestions(false);
     setSuggestions([]);
     setSelectedIndex(-1);
-    
-    if (onSelect) {
-      onSelect(suggestion);
-    }
+    onSelect?.(suggestion);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!showSuggestions) {
+    if (!showSuggestions || suggestions.length === 0) {
       onKeyDown?.(e);
       return;
     }
@@ -156,18 +152,18 @@ export function GooglePlacesAutocomplete({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex(prev => 
-          prev < suggestions.length - 1 ? prev + 1 : prev
-        );
+        setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev));
         break;
       case 'ArrowUp':
         e.preventDefault();
-        setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1));
         break;
       case 'Enter':
-        e.preventDefault();
         if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
-          handleSuggestionClick(suggestions[selectedIndex]);
+          e.preventDefault();
+          handleSelect(suggestions[selectedIndex]);
+        } else {
+          onKeyDown?.(e);
         }
         break;
       case 'Escape':
@@ -180,11 +176,10 @@ export function GooglePlacesAutocomplete({
   };
 
   const handleBlur = () => {
-    // Delay hiding suggestions to allow clicking
     setTimeout(() => {
       setShowSuggestions(false);
       setSelectedIndex(-1);
-    }, 150);
+    }, 200);
   };
 
   return (
@@ -196,34 +191,45 @@ export function GooglePlacesAutocomplete({
         value={value}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
-        onFocus={onFocus}
+        onFocus={(e) => {
+          onFocus?.(e);
+          if (value && value.length >= 2 && suggestions.length > 0) {
+            setShowSuggestions(true);
+          }
+        }}
         onBlur={handleBlur}
-        placeholder={isGoogleLoaded ? placeholder : "Loading location service..."}
-        disabled={disabled || !isGoogleLoaded}
+        placeholder={placeholder}
+        disabled={disabled}
         className={cn("w-full", className)}
         autoComplete="off"
       />
-      
+
       {showSuggestions && suggestions.length > 0 && (
         <div className="absolute z-[100] w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
           {suggestions.map((suggestion, index) => (
             <div
               key={suggestion.place_id}
               className={cn(
-                "px-4 py-2 cursor-pointer text-sm text-black dark:text-white",
+                "px-4 py-2 cursor-pointer text-sm",
                 "hover:bg-blue-50 dark:hover:bg-blue-900 border-b border-gray-100 dark:border-gray-700 last:border-b-0",
-                selectedIndex === index && "bg-blue-100 dark:bg-blue-800"
+                selectedIndex === index && "bg-blue-100 dark:bg-blue-800",
               )}
-              onClick={() => handleSuggestionClick(suggestion)}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => handleSelect(suggestion)}
             >
-              <div className="font-medium text-gray-900">
-                {suggestion.structured_formatting?.main_text || suggestion.description}
-              </div>
-              {suggestion.structured_formatting?.secondary_text && (
-                <div className="text-gray-600 text-xs">
-                  {suggestion.structured_formatting.secondary_text}
+              <div className="flex items-center space-x-2">
+                <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <div>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {suggestion.structured_formatting?.main_text || suggestion.description}
+                  </span>
+                  {suggestion.structured_formatting?.secondary_text && (
+                    <span className="text-gray-500 text-xs ml-1">
+                      {suggestion.structured_formatting.secondary_text}
+                    </span>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           ))}
         </div>

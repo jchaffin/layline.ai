@@ -1,11 +1,11 @@
 // NextAuth / Auth.js required models (table names match existing DB)
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -150,6 +150,37 @@ model Institution {
   @@map("institutions")
 }
 
+model JobListing {
+  id             String    @id @default(dbgenerated("gen_random_uuid()"))
+  externalId     String    @unique @map("external_id")
+  title          String
+  company        String
+  employerLogo   String?   @map("employer_logo")
+  location       String?
+  description    String    @db.Text
+  url            String
+  applyLink      String?   @map("apply_link")
+  postedAt       DateTime? @map("posted_at")
+  salary         String?
+  minSalary      Int?      @map("min_salary")
+  maxSalary      Int?      @map("max_salary")
+  salaryPeriod   String?   @map("salary_period")
+  employmentType String?   @map("employment_type")
+  isRemote       Boolean   @default(false) @map("is_remote")
+  source         String
+  highlights     Json?
+  tags           String[]  @default([])
+  scrapedAt      DateTime  @default(now()) @map("scraped_at")
+
+  @@index([title])
+  @@index([company])
+  @@index([location])
+  @@index([source])
+  @@index([scrapedAt])
+  @@index([isRemote])
+  @@map("job_listings")
+}
+
 model JobApplication {
   id          String    @id @default(dbgenerated("gen_random_uuid()"))
   userId      String?   @map("user_id")
@@ -162,6 +193,9 @@ model JobApplication {
   notes       String?   @db.Text
   location    String?
   salaryRange String?   @map("salary_range")
+  description String?   @db.Text
+  analysis    Json?
+  fileKey     String?   @map("file_key")
   createdAt   DateTime? @map("created_at") @default(now())
 
   user User? @relation(fields: [userId], references: [id])

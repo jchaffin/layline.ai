@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { Badge } from "@/components/ui/Badge";
-import SimpleJobBoard from "./SimpleJobBoard";
+import JobBoard from "./JobBoard";
 import ApplicationTracker from "./ApplicationTracker";
+import JDEditView from "./JDEditView";
+import type { ParsedResume } from "@/lib/schema";
 
 interface Job {
   id: string;
@@ -17,6 +19,7 @@ interface Job {
   salary?: string;
   type: string;
   fitScore?: number;
+  matchScore?: number;
   matchReasons?: string[];
 }
 
@@ -30,31 +33,124 @@ interface Application {
   jobUrl?: string;
   notes?: string;
   salary?: string;
+  description?: string;
+  analysis?: any;
 }
 
-export default function JobManager() {
+export default function JobManager({ resumeData }: { resumeData?: ParsedResume | null }) {
   const [applications, setApplications] = useState<Application[]>([]);
   const [activeTab, setActiveTab] = useState("search");
+  const [editingApp, setEditingApp] = useState<Application | null>(null);
 
-  // Function to add job from job board to application tracker
-  const addJobToTracker = (job: Job) => {
-    const newApplication: Application = {
-      id: `app-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+  const loadApplications = useCallback(async () => {
+    try {
+      const res = await fetch("/api/jobs/applications");
+      const data = await res.json();
+      const dbApps = Array.isArray(data.applications) ? data.applications : [];
+      if (dbApps.length === 0) return;
+
+      const mapped = dbApps.map((a: any) => ({
+        id: a.id,
+        jobTitle: a.jobTitle,
+        company: a.company,
+        location: a.location || "",
+        status: a.status as Application["status"],
+        appliedDate: new Date(a.appliedDate || a.createdAt),
+        jobUrl: a.jobUrl,
+        notes: a.notes,
+        salary: a.salaryRange,
+        description: a.description,
+        analysis: a.analysis,
+      }));
+
+      setApplications((prev) => {
+        const dbIds = new Set(mapped.map((a: Application) => a.id));
+        const localOnly = prev.filter((a) => a.id.startsWith("temp-") && !dbIds.has(a.id));
+        return [...localOnly, ...mapped];
+      });
+    } catch {}
+  }, []);
+
+  useEffect(() => { loadApplications(); }, [loadApplications]);
+
+  const addJobToTracker = async (job: Job) => {
+    const newApp: Application = {
+      id: `temp-${Date.now()}`,
       jobTitle: job.title,
       company: job.company,
       location: job.location,
       status: "applied",
       appliedDate: new Date(),
       jobUrl: job.url,
-      notes: `Found via job search. Match score: ${job.fitScore || 'N/A'}%`,
+      notes: job.matchScore ? `Match score: ${job.matchScore}%` : undefined,
       salary: job.salary,
     };
 
-    setApplications(prev => [newApplication, ...prev]);
-    
-    // Switch to tracker tab to show the added application
+    setApplications((prev) => [newApp, ...prev]);
     setActiveTab("tracker");
+
+    try {
+      const res = await fetch("/api/jobs/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobTitle: job.title,
+          company: job.company,
+          jobUrl: job.url || "",
+          status: "applied",
+          notes: newApp.notes,
+          location: job.location,
+          salaryRange: job.salary,
+        }),
+      });
+      const saved = await res.json();
+      if (saved.id) {
+        setApplications((prev) =>
+          prev.map((a) => (a.id === newApp.id ? { ...a, id: saved.id } : a)),
+        );
+      }
+    } catch {}
   };
+
+  const handleApplicationUpdate = (updated: Application[]) => {
+    setApplications(updated);
+  };
+
+  const handleJDSave = async (id: string, data: { jobTitle: string; company: string; location: string; description?: string; analysis: any }) => {
+    setApplications((prev) =>
+      prev.map((a) => a.id === id ? { ...a, jobTitle: data.jobTitle, company: data.company, location: data.location, description: data.description, analysis: data.analysis } : a),
+    );
+    if (editingApp) {
+      setEditingApp((prev) => prev ? { ...prev, jobTitle: data.jobTitle, company: data.company, location: data.location, description: data.description, analysis: data.analysis } : prev);
+    }
+    fetch(`/api/jobs/applications/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        notes: undefined,
+        description: data.description,
+        analysis: data.analysis,
+      }),
+    }).catch(() => {});
+  };
+
+  const handlePracticeInterview = (context: { companyName: string; roleTitle: string; jobDescription: string }) => {
+    sessionStorage.setItem("interviewContext", JSON.stringify(context));
+    window.location.href = "/interview";
+  };
+
+  if (editingApp) {
+    return (
+      <div className="w-full max-w-7xl mx-auto">
+        <JDEditView
+          application={editingApp}
+          onBack={() => setEditingApp(null)}
+          onSave={handleJDSave}
+          onPracticeInterview={handlePracticeInterview}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-7xl mx-auto">
@@ -74,18 +170,18 @@ export default function JobManager() {
         </TabsList>
 
         <TabsContent value="search" className="mt-6">
-          <SimpleJobBoard onAddToTracker={addJobToTracker} />
+          <JobBoard onAddToTracker={addJobToTracker} resumeData={resumeData} />
         </TabsContent>
 
         <TabsContent value="tracker" className="mt-6">
-          <ApplicationTracker 
+          <ApplicationTracker
             applications={applications}
-            onApplicationUpdate={setApplications}
+            onApplicationUpdate={handleApplicationUpdate}
+            resumeData={resumeData}
+            onOpenApplication={setEditingApp}
           />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
-
-
