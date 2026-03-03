@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm install && cd packages/agents && npm install && npm run build",
+  "installCommand": "npm install --workspaces && npm run build --workspace=@layline/agents",
   "crons": [
     {
       "path": "/api/cron/scrape-jobs",
