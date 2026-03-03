@@ -1,9 +1,11 @@
-import path from "node:path";
-import { config } from "dotenv";
 import { defineConfig } from "prisma/config";
 
-config({ path: path.resolve(process.cwd(), ".env.local") });
-config();
+try {
+  const { config } = await import("dotenv");
+  const path = await import("node:path");
+  config({ path: path.resolve(process.cwd(), ".env.local") });
+  config();
+} catch {}
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
