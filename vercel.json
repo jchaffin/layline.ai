@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm install --workspaces && npm run build --workspace=@layline/agents",
+  "installCommand": "npm install && npx prisma generate",
   "crons": [
     {
       "path": "/api/cron/scrape-jobs",
