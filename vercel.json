@@ -1,5 +1,4 @@
 {
-  "installCommand": "npm install && npx prisma generate",
   "crons": [
     {
       "path": "/api/cron/scrape-jobs",
