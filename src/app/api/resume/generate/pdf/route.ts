@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     const css = getTemplateCSS(templateId);
     const htmlBase = generateResumeHTMLString(resumeData);
     const html = htmlBase.replace(
-      /<style>.*?<\/style>/s,
+      /<style>[\s\S]*?<\/style>/,
       `<style>${css} .resume-page { width: 8.5in; }</style>`
     );
 
