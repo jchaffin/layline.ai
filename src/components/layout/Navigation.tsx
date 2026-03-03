@@ -106,11 +106,9 @@ export function Navigation({
           })}
         </nav>
 
-        {!isCollapsed && (
-          <div className="border-t p-3">
-            <LoginButton />
-          </div>
-        )}
+        <div className="border-t p-3 flex justify-center">
+          <LoginButton />
+        </div>
       </aside>
 
       {/* Mobile top bar */}
