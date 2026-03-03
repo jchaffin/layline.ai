@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createCoachSessionKey } from "@layline/agents/handlers";
 
 export async function POST() {
   try {
@@ -11,8 +10,47 @@ export async function POST() {
       );
     }
 
-    const result = await createCoachSessionKey({ openaiApiKey: apiKey });
-    return NextResponse.json(result);
+    const response = await fetch(
+      "https://api.openai.com/v1/realtime/client_secrets",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          expires_after: { anchor: "created_at", seconds: 600 },
+          session: {
+            type: "realtime",
+            model: "gpt-realtime",
+            audio: {
+              input: {
+                transcription: { model: "gpt-4o-transcribe" },
+              },
+            },
+          },
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Coach session error:", response.status, errorText);
+      return NextResponse.json(
+        { error: `OpenAI API error: ${response.status}`, details: errorText },
+        { status: 500 },
+      );
+    }
+
+    const data = await response.json();
+    if (!data.value) {
+      return NextResponse.json(
+        { error: "Invalid response from OpenAI" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ ephemeralKey: data.value });
   } catch (error) {
     console.error("Coach session handler error:", error);
     return NextResponse.json(

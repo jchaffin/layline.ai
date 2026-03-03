@@ -22,7 +22,7 @@ import {
   Check,
   X,
 } from "lucide-react";
-import type { InterviewMode, InterviewSetupData } from "@layline/agents";
+import type { InterviewMode, InterviewSetupData } from "@/types/interview";
 import { useAuthenticatedStorage } from "@/hooks/useAuthStorage";
 
 interface InterviewSetupProps {

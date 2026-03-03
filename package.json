@@ -3,12 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "license": "MIT",
-  "workspaces": [
-    "packages/*"
-  ],
   "scripts": {
     "dev": "next dev",
-    "build": "npm run build --workspace=@layline/agents && prisma generate && next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "tsx --test src/lib/jobScraper.test.ts"

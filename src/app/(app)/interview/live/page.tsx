@@ -17,8 +17,8 @@ import {
   Lightbulb,
   RotateCcw,
 } from "lucide-react";
-import { useInterviewSession } from "@layline/agents/hooks";
-import type { InterviewSetupData, FeedbackItem } from "@layline/agents";
+import { useInterviewSession } from "@/hooks/useInterviewSession";
+import type { InterviewSetupData, FeedbackItem } from "@/types/interview";
 import type { TranscriptItem } from "@jchaffin/voicekit";
 
 function LiveSession() {

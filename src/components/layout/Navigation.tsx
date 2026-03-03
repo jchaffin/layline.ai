@@ -12,7 +12,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import LoginButton from "@/components/auth/LoginButton";
-import type { NavigationStep } from "@layline/agents";
+import type { NavigationStep } from "@/types/interview";
 
 export type { NavigationStep };
 

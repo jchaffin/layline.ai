@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import InterviewSetup from "@/components/interview/InterviewSetup";
-import type { InterviewSetupData } from "@layline/agents";
+import type { InterviewSetupData } from "@/types/interview";
 
 export default function InterviewPage() {
   const router = useRouter();
