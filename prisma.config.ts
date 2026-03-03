@@ -4,7 +4,6 @@ try {
   const { config } = await import("dotenv");
   const path = await import("node:path");
   config({ path: path.resolve(process.cwd(), ".env.local") });
-  config();
 } catch {}
 
 export default defineConfig({
