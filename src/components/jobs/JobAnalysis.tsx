@@ -23,30 +23,11 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 import { ScrollArea } from "@/components/ui/ScrollArea";
+import type { JobAnalysis } from "@/types/job";
 
-type JobAnalysis = {
-  company: string;
-  role: string;
-  requiredSkills: string[];
-  preferredSkills: string[];
-  responsibilities: string[];
-  qualifications: string[];
-  experienceLevel: string;
-  requiredYears: number;
-  location: string;
-  workType: string;
-  companyInfo: string;
-  keywords: string[];
-  sentiment: number;
-  experience: string;
-  strongPoints?: string[];
-  missingSkills?: string[];
-};
-
-// Single response type
 type AnalyzeResponse = {
   description: string;
-  analysis?: JobAnalysis; // not optional at the call site, but API may omit
+  analysis?: JobAnalysis;
 };
 
 // Props use the SAME shape

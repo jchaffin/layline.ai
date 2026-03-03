@@ -1,82 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
+
+const openai = new OpenAI();
 
 export async function POST(request: NextRequest) {
   try {
-    const { experience } = await request.json();
+    const { section, content } = await request.json();
 
-    if (!experience) {
-      return NextResponse.json(
-        { error: "Experience data is required" },
-        { status: 400 }
-      );
+    if (!content?.trim()) {
+      return NextResponse.json({ error: "No content provided" }, { status: 400 });
     }
 
-    // Simulate AI improvement of the experience description
-    const improvedDescription = await improveExperienceDescription(experience);
+    const prompts: Record<string, string> = {
+      summary: `Improve this professional summary for a resume. Make it concise, impactful, and ATS-friendly. Keep it to 2-4 sentences. Use strong action-oriented language. Do not add any formatting markers or labels — output only the improved text.\n\nOriginal:\n${content}`,
+      description: `Improve these job description bullet points for a resume. Make each bullet start with a strong action verb, include quantifiable metrics where possible, and be concise. Keep the same number of bullets. Use "- " prefix for each bullet. Do not add any formatting markers or labels — output only the improved bullets.\n\nOriginal:\n${content}`,
+    };
 
-    return NextResponse.json({
-      success: true,
-      improvedDescription,
-      message: "Experience improved with AI suggestions"
+    const prompt = prompts[section] || prompts.description;
+
+    const res = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are an expert resume writer. Output only the improved text with no preamble." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 1000,
     });
 
+    const improvedContent = res.choices[0]?.message?.content?.trim();
+    if (!improvedContent) {
+      return NextResponse.json({ error: "No response" }, { status: 500 });
+    }
+
+    return NextResponse.json({ improvedContent });
   } catch (error) {
-    console.error("Improve experience error:", error);
-    return NextResponse.json(
-      { error: "Failed to improve experience" },
-      { status: 500 }
-    );
+    console.error("Resume improve error:", error);
+    return NextResponse.json({ error: "Failed to improve" }, { status: 500 });
   }
-}
-
-async function improveExperienceDescription(experience: {
-  company?: string;
-  role?: string;
-  description?: string;
-  duration?: string;
-}): Promise<string> {
-  // For now, provide enhanced descriptions with better keywords and structure
-  const { company, role, description } = experience;
-
-  // Basic improvements with action verbs and quantifiable achievements
-  const actionVerbs = [
-    "Developed", "Implemented", "Led", "Managed", "Designed", "Optimized", 
-    "Created", "Delivered", "Achieved", "Improved", "Collaborated", "Streamlined"
-  ];
-
-  const improvements = [
-    "• Collaborated with cross-functional teams to deliver high-quality solutions",
-    "• Implemented best practices and coding standards to improve code quality",
-    "• Participated in agile development processes and sprint planning",
-    "• Contributed to technical documentation and knowledge sharing",
-    "• Optimized performance and user experience through innovative solutions"
-  ];
-
-  // If there's already a description, enhance it
-  if (description && description.trim()) {
-    let enhanced = description;
-    
-    // Add action verbs if missing
-    if (!actionVerbs.some(verb => enhanced.toLowerCase().includes(verb.toLowerCase()))) {
-      enhanced = `Developed and ${enhanced.toLowerCase()}`;
-    }
-
-    // Add quantifiable impact if missing numbers
-    if (!/\d/.test(enhanced)) {
-      enhanced += ". Improved system efficiency by 20% and reduced processing time.";
-    }
-
-    // Add collaboration if not mentioned
-    if (!enhanced.toLowerCase().includes("team") && !enhanced.toLowerCase().includes("collaborat")) {
-      enhanced += " Worked closely with team members to ensure project success.";
-    }
-
-    return enhanced;
-  }
-
-  // Generate a new description if none exists
-  const roleTitle = role || "Professional";
-  const companyName = company || "the organization";
-
-  return `Developed and implemented key initiatives as ${roleTitle} at ${companyName}. ${improvements.slice(0, 3).join(" ")} Delivered measurable results while maintaining high standards of quality and efficiency.`;
 }

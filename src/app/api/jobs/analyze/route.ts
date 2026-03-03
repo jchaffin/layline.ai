@@ -3,6 +3,106 @@ import { openai } from "@/lib/api/openai";
 import pdfParse from "@jchaffin/pdf-parse";
 import { computeMatchScore } from "@/lib/resumeJobMatch";
 import type { ParsedResume } from "@/lib/schema";
+import { cleanText, fetchViaScrapeless } from "@/lib/jobScraper";
+
+async function fetchUrlHtml(url: string): Promise<string | null> {
+  let fetchUrl = url;
+  if (url.includes("linkedin.com")) {
+    const jobIdMatch =
+      url.match(/currentJobId=(\d+)/) ||
+      url.match(/jobs\/view\/[^/]*?(\d{8,})/) ||
+      url.match(/jobs\/view\/(\d+)/);
+    if (jobIdMatch) {
+      fetchUrl = `https://www.linkedin.com/jobs/view/${jobIdMatch[1]}`;
+    }
+  }
+
+  const headers = {
+    "User-Agent":
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    Accept: "text/html,application/xhtml+xml",
+    "Accept-Language": "en-US,en;q=0.9",
+  };
+
+  const htmlFromScraper = await fetchViaScrapeless(fetchUrl);
+  if (htmlFromScraper) return htmlFromScraper;
+
+  const fetchResponse = await fetch(fetchUrl, { headers });
+  if (!fetchResponse.ok) return null;
+  return fetchResponse.text();
+}
+
+function extractLocationFallback(text: string): string {
+  const source = text || "";
+
+  if (/\bremote\b/i.test(source)) return "Remote";
+
+  const metroMatch = source.match(
+    /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}\s+Metropolitan Area)\b/,
+  );
+  if (metroMatch?.[1]) return metroMatch[1];
+
+  const cityStateMatch = source.match(
+    /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3},\s*[A-Z]{2})\b/,
+  );
+  if (cityStateMatch?.[1]) return cityStateMatch[1];
+
+  const usCityStateNameMatch = source.match(
+    /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3},\s*(?:Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West Virginia|Wisconsin|Wyoming))\b/,
+  );
+  if (usCityStateNameMatch?.[1]) return usCityStateNameMatch[1];
+
+  return "";
+}
+
+async function fetchDescriptionFromUrl(url: string): Promise<string | null> {
+  const htmlContent = await fetchUrlHtml(url);
+
+  if (!htmlContent) return null;
+
+  if (url.includes("linkedin.com")) {
+    const descMatch = htmlContent.match(
+      /class="show-more-less-html__markup[^"]*"[^>]*>([\s\S]*?)<\/div>/,
+    );
+    if (descMatch) {
+      const linkedInDescription = cleanText(descMatch[1]);
+      if (linkedInDescription.length > 20) return linkedInDescription;
+    }
+  }
+
+  const textContent = htmlContent
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (textContent.length < 100) return null;
+  return cleanText(textContent);
+}
+
+async function extractLocationFromUrl(url: string): Promise<string> {
+  const htmlContent = await fetchUrlHtml(url);
+  if (!htmlContent) return "";
+
+  if (url.includes("linkedin.com")) {
+    const titleMatch = htmlContent.match(
+      /<title[^>]*>[\s\S]*?\sin\s([^|<]+?)\s\|\sLinkedIn[\s\S]*?<\/title>/i,
+    );
+    if (titleMatch?.[1]) {
+      return cleanText(titleMatch[1]).trim();
+    }
+
+    const ldJsonMatch = htmlContent.match(
+      /"addressLocality"\s*:\s*"([^"]+)"/i,
+    );
+    if (ldJsonMatch?.[1]) {
+      return cleanText(ldJsonMatch[1]).trim();
+    }
+  }
+
+  return "";
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,50 +153,8 @@ export async function POST(request: NextRequest) {
 
     if (url && !jobDescriptionText) {
       try {
-        let fetchUrl = url;
-        const headers = {
-          "User-Agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-          Accept: "text/html,application/xhtml+xml",
-          "Accept-Language": "en-US,en;q=0.9",
-        };
-
-        if (url.includes("linkedin.com")) {
-          const jobIdMatch = url.match(/currentJobId=(\d+)/) || url.match(/jobs\/view\/[^/]*?(\d{8,})/) || url.match(/jobs\/view\/(\d+)/);
-          if (jobIdMatch) {
-            fetchUrl = `https://www.linkedin.com/jobs/view/${jobIdMatch[1]}`;
-          }
-        }
-
-        const fetchResponse = await fetch(fetchUrl, { headers });
-        if (!fetchResponse.ok) throw new Error(`HTTP ${fetchResponse.status}`);
-        const htmlContent = await fetchResponse.text();
-
-        if (fetchUrl.includes("linkedin.com")) {
-          const descMatch = htmlContent.match(
-            /class="show-more-less-html__markup[^"]*"[^>]*>([\s\S]*?)<\/div>/,
-          );
-          if (descMatch) {
-            jobDescriptionText = descMatch[1]
-              .replace(/<[^>]*>/g, " ")
-              .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-              .replace(/&quot;/g, '"').replace(/&#x27;/g, "'")
-              .replace(/\s+/g, " ")
-              .trim();
-          }
-        }
-
-        if (!jobDescriptionText) {
-          const textContent = htmlContent
-            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-            .replace(/<[^>]*>/g, " ")
-            .replace(/\s+/g, " ")
-            .trim();
-
-          if (textContent.length < 100) throw new Error("Insufficient content extracted");
-          jobDescriptionText = textContent;
-        }
+        jobDescriptionText = await fetchDescriptionFromUrl(url) || undefined;
+        if (!jobDescriptionText) throw new Error("Insufficient content extracted");
       } catch {
         return NextResponse.json(
           { error: "Could not fetch job description from URL." },
@@ -158,6 +216,35 @@ For "interviewProcess", extract the EXACT interview steps mentioned in the job d
     const analysis = JSON.parse(
       completion.choices[0].message.content || "{}"
     );
+
+    const aiLocation = typeof analysis.location === "string" ? analysis.location.trim() : "";
+    const locationNormalized = aiLocation.toLowerCase();
+    const looksLikeWorkType =
+      locationNormalized === "hybrid" ||
+      locationNormalized === "remote" ||
+      locationNormalized === "onsite" ||
+      locationNormalized === "on-site";
+    const needsLocationFallback =
+      !aiLocation ||
+      locationNormalized === "not specified" ||
+      locationNormalized === "unspecified" ||
+      locationNormalized === "unknown" ||
+      locationNormalized === "n/a" ||
+      looksLikeWorkType;
+    if (needsLocationFallback) {
+      let fallbackLocation = "";
+      if (url) {
+        fallbackLocation = await extractLocationFromUrl(url);
+      }
+      if (!fallbackLocation) {
+        fallbackLocation = extractLocationFallback(cleanDescription);
+      }
+      if (fallbackLocation) {
+        analysis.location = fallbackLocation;
+      } else if (looksLikeWorkType) {
+        analysis.location = "";
+      }
+    }
 
     const allSkills = [
       ...(analysis.requiredSkills || []),

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -480,26 +480,33 @@ function ExperienceItem({
           <span className="text-muted-foreground pb-2.5">—</span>
           <div className="flex-1">
             {experience.isCurrentRole ? (
-              <div className="h-10 px-3 border border-input bg-muted rounded-md flex items-center text-sm text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => updateField('isCurrentRole', false)}
+                className="h-9 w-full px-3 border border-blue-300 bg-blue-50 rounded-md flex items-center justify-center text-sm font-medium text-blue-600 hover:bg-blue-100 transition-colors"
+              >
                 Present
-              </div>
+              </button>
             ) : (
               <SimpleDatePicker
                 value={experience.endDate}
-                onChange={(date) => updateField('endDate', date)}
+                onChange={(date) => {
+                  updateField('endDate', date);
+                  if (date) updateField('isCurrentRole', false);
+                }}
                 placeholder="End date"
               />
             )}
           </div>
-          <label className="flex items-center gap-1.5 text-sm pb-2.5 shrink-0">
-            <input
-              type="checkbox"
-              checked={experience.isCurrentRole || false}
-              onChange={(e) => updateField('isCurrentRole', e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            <span className="whitespace-nowrap">Current</span>
-          </label>
+          {!experience.endDate && !experience.isCurrentRole && (
+            <button
+              type="button"
+              onClick={() => { updateField('isCurrentRole', true); updateField('endDate', undefined); }}
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium pb-2.5 shrink-0 whitespace-nowrap"
+            >
+              Current role?
+            </button>
+          )}
           <div className="flex-1">
             <GooglePlacesAutocomplete
               value={experience.location === 'undefined' ? '' : (experience.location || '')}
@@ -957,6 +964,14 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
   };
 
   const [sections, setSections] = useState<ResumeSection[]>(initializeSections());
+  const lastPushedJson = useRef("");
+
+  useEffect(() => {
+    const incoming = JSON.stringify(resumeData);
+    if (incoming !== lastPushedJson.current) {
+      setSections(initializeSections());
+    }
+  }, [resumeData]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -996,6 +1011,7 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
       }
     });
     
+    lastPushedJson.current = JSON.stringify(newResumeData);
     onDataChange(newResumeData);
   };
 

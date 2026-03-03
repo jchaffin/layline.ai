@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { GooglePlacesAutocomplete } from "@/components/shared/AutoComplete";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
@@ -21,34 +22,12 @@ import {
   ChevronDown,
   ChevronUp,
   Plus,
+  Clock,
 } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 import type { ParsedResume } from "@/lib/schema";
-
-interface Analysis {
-  companyInfo?: string;
-  experience?: string;
-  experienceLevel?: string;
-  requiredSkills?: string[];
-  preferredSkills?: string[];
-  responsibilities?: string[];
-  qualifications?: string[];
-  workType?: string;
-}
-
-interface Application {
-  id: string;
-  jobTitle: string;
-  company: string;
-  location: string;
-  status: "applied" | "interview" | "rejected" | "offer" | "accepted";
-  appliedDate: Date;
-  jobUrl?: string;
-  notes?: string;
-  salary?: string;
-  description?: string;
-  analysis?: Analysis;
-}
+import type { Application } from "@/types/job";
+import { CompanyLogo } from "@/components/jobs/CompanyLogo";
 
 interface ApplicationTrackerProps {
   applications?: Application[];
@@ -74,6 +53,9 @@ export default function ApplicationTracker({
   const [newCompany, setNewCompany] = useState("");
   const [newLocation, setNewLocation] = useState("");
   const [newUrl, setNewUrl] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newAnalysis, setNewAnalysis] = useState<Application["analysis"] | undefined>(undefined);
+  const [scrapingUrl, setScrapingUrl] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleManualAdd = async () => {
@@ -89,9 +71,12 @@ export default function ApplicationTracker({
       status: "applied",
       appliedDate: new Date(),
       jobUrl: newUrl.trim() || undefined,
+      description: newDescription.trim() || undefined,
+      analysis: newAnalysis,
     };
     onApplicationUpdate?.([newApp, ...applications]);
     setNewTitle(""); setNewCompany(""); setNewLocation(""); setNewUrl("");
+    setNewDescription(""); setNewAnalysis(undefined);
     setShowAddForm(false);
 
     try {
@@ -104,6 +89,8 @@ export default function ApplicationTracker({
           jobUrl: newApp.jobUrl || "",
           status: "applied",
           location: newApp.location,
+          description: newApp.description,
+          analysis: newApp.analysis,
         }),
       });
       const saved = await res.json();
@@ -114,6 +101,46 @@ export default function ApplicationTracker({
       }
     } catch {}
     toast({ title: "Application added", description: `${newApp.jobTitle} at ${newApp.company}` });
+  };
+
+  const handleScrapeUrl = async () => {
+    const url = newUrl.trim();
+    if (!url) {
+      toast({ title: "Enter a job URL first", variant: "destructive" });
+      return;
+    }
+
+    setScrapingUrl(true);
+    try {
+      const res = await fetch("/api/jobs/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.job) {
+        throw new Error(data?.error || "Could not scrape this job URL");
+      }
+
+      if (data.job.title) setNewTitle(data.job.title);
+      if (data.job.company) setNewCompany(data.job.company);
+      if (data.job.location) setNewLocation(data.job.location);
+      if (data.job.url) setNewUrl(data.job.url);
+      setNewDescription(data.job.description || "");
+      setNewAnalysis(data.analysis || undefined);
+
+      toast({
+        title: "Job URL scraped",
+        description: "Filled title, company, location, and parsed JD.",
+      });
+    } catch (error) {
+      toast({
+        title: error instanceof Error ? error.message : "Failed to scrape URL",
+        variant: "destructive",
+      });
+    } finally {
+      setScrapingUrl(false);
+    }
   };
 
   const handleJDUpload = async (file: File) => {
@@ -286,8 +313,29 @@ export default function ApplicationTracker({
                 <Input value={newCompany} onChange={(e) => setNewCompany(e.target.value)} placeholder="Company *" />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Input value={newLocation} onChange={(e) => setNewLocation(e.target.value)} placeholder="Location" />
-                <Input value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="Job URL (optional)" />
+                <GooglePlacesAutocomplete value={newLocation} onChange={(value) => setNewLocation(value)} placeholder="Location" />
+                <div className="flex gap-2">
+                  <Input
+                    value={newUrl}
+                    onChange={(e) => setNewUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void handleScrapeUrl();
+                      }
+                    }}
+                    placeholder="Job URL"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleScrapeUrl}
+                    disabled={!newUrl.trim() || scrapingUrl}
+                  >
+                    {scrapingUrl ? <Loader2 className="w-4 h-4 animate-spin" /> : "Scrape URL"}
+                  </Button>
+                </div>
               </div>
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleManualAdd} disabled={!newTitle.trim() || !newCompany.trim()}>Add Application</Button>
@@ -315,7 +363,10 @@ export default function ApplicationTracker({
                 <Card key={app.id} className="border-l-4 border-l-blue-500">
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-3">
+                          <CompanyLogo url={app.jobUrl} size="sm" />
+                          <div className="min-w-0 flex-1">
                         <h3
                           className="font-semibold text-lg hover:text-blue-600 cursor-pointer transition-colors"
                           onClick={() => onOpenApplication?.(app)}
@@ -334,6 +385,8 @@ export default function ApplicationTracker({
                           <div className="flex items-center">
                             <Calendar className="w-4 h-4 mr-1" />
                             {app.appliedDate.toLocaleDateString()}
+                          </div>
+                        </div>
                           </div>
                         </div>
                       </div>
@@ -451,14 +504,20 @@ export default function ApplicationTracker({
                       <div className="border-t pt-4 mt-3 space-y-4">
                         {app.analysis.companyInfo && (
                           <div>
-                            <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">About the Company</h5>
+                            <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 inline-flex items-center gap-1.5">
+                              <Building className="w-3.5 h-3.5" />
+                              About the Company
+                            </h5>
                             <p className="text-sm text-gray-700">{app.analysis.companyInfo}</p>
                           </div>
                         )}
 
                         {app.analysis.experience && (
                           <div>
-                            <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Experience</h5>
+                            <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 inline-flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5" />
+                              Experience
+                            </h5>
                             <div className="flex items-center gap-2">
                               <span className="text-sm text-gray-700">{app.analysis.experience}</span>
                               {app.analysis.experienceLevel && (
@@ -470,9 +529,12 @@ export default function ApplicationTracker({
 
                         {app.analysis.requiredSkills && app.analysis.requiredSkills.length > 0 && (
                           <div>
-                            <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Required Skills</h5>
+                            <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 inline-flex items-center gap-1.5">
+                              <Briefcase className="w-3.5 h-3.5" />
+                              Required Skills
+                            </h5>
                             <div className="flex flex-wrap gap-1.5">
-                              {app.analysis.requiredSkills.map((s, i) => (
+                              {app.analysis.requiredSkills.map((s: string, i: number) => (
                                 <span key={i} className="text-xs px-2.5 py-1 rounded-lg bg-gray-900 text-white font-medium">{s}</span>
                               ))}
                             </div>
@@ -481,9 +543,12 @@ export default function ApplicationTracker({
 
                         {app.analysis.preferredSkills && app.analysis.preferredSkills.length > 0 && (
                           <div>
-                            <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Preferred Skills</h5>
+                            <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 inline-flex items-center gap-1.5">
+                              <Briefcase className="w-3.5 h-3.5" />
+                              Preferred Skills
+                            </h5>
                             <div className="flex flex-wrap gap-1.5">
-                              {app.analysis.preferredSkills.map((s, i) => (
+                              {app.analysis.preferredSkills.map((s: string, i: number) => (
                                 <span key={i} className="text-xs px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700 font-medium">{s}</span>
                               ))}
                             </div>
@@ -492,9 +557,12 @@ export default function ApplicationTracker({
 
                         {app.analysis.qualifications && app.analysis.qualifications.length > 0 && (
                           <div>
-                            <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Qualifications</h5>
+                            <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 inline-flex items-center gap-1.5">
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              Qualifications
+                            </h5>
                             <ul className="space-y-1">
-                              {app.analysis.qualifications.map((q, i) => (
+                              {app.analysis.qualifications.map((q: string, i: number) => (
                                 <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
                                   <span className="w-1.5 h-1.5 rounded-full bg-gray-300 mt-[7px] flex-shrink-0" />
                                   {q}
@@ -506,9 +574,12 @@ export default function ApplicationTracker({
 
                         {app.analysis.responsibilities && app.analysis.responsibilities.length > 0 && (
                           <div>
-                            <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Responsibilities</h5>
+                            <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 inline-flex items-center gap-1.5">
+                              <FileText className="w-3.5 h-3.5" />
+                              Responsibilities
+                            </h5>
                             <ul className="space-y-1">
-                              {app.analysis.responsibilities.map((r, i) => (
+                              {app.analysis.responsibilities.map((r: string, i: number) => (
                                 <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
                                   <span className="w-1.5 h-1.5 rounded-full bg-gray-300 mt-[7px] flex-shrink-0" />
                                   {r}
@@ -520,7 +591,10 @@ export default function ApplicationTracker({
 
                         {app.description && (
                           <div>
-                            <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Full Description</h5>
+                            <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 inline-flex items-center gap-1.5">
+                              <FileText className="w-3.5 h-3.5" />
+                              Full Description
+                            </h5>
                             <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line max-h-60 overflow-y-auto">{app.description}</p>
                           </div>
                         )}

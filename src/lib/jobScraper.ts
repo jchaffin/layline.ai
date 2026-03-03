@@ -140,7 +140,6 @@ export async function searchWithJSearchAPI(params: SearchParams): Promise<Scrape
 }
 
 // ─── LinkedIn ───
-
 export async function searchLinkedInJobs(params: SearchParams): Promise<ScrapedJob[]> {
   try {
     const allJobs: ScrapedJob[] = [];

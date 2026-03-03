@@ -1,33 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Textarea } from "@/components/ui/Textarea";
 import {
   Play,
+  Briefcase,
   Building,
+  MapPin,
+  Calendar,
   User,
   Phone,
   Code,
   Crown,
   FileText,
-  Link,
   Loader2,
   Check,
   X,
 } from "lucide-react";
-import type { InterviewMode } from "@/types/interview";
+import type { InterviewMode, InterviewSetupData } from "@layline/agents";
+import { useAuthenticatedStorage } from "@/hooks/useAuthStorage";
 
 interface InterviewSetupProps {
-  onStart: (setupData: {
-    mode: InterviewMode;
-    companyName?: string;
-    roleTitle?: string;
-    jobDescription?: string;
-  }) => void;
+  onStart: (setupData: InterviewSetupData) => void;
 }
 
 interface SavedJobAnalysis {
@@ -44,7 +43,17 @@ interface SavedJobAnalysis {
   };
 }
 
-type JDSource = "none" | "saved" | "paste" | "url";
+type JDSource = "none" | "saved" | "paste";
+interface TrackerApplication {
+  id: string;
+  status: "applied" | "interview" | "rejected" | "offer" | "accepted";
+  jobTitle: string;
+  company: string;
+  location?: string;
+  appliedDate?: string;
+  description?: string;
+  analysis?: any;
+}
 
 const MODE_OPTIONS: {
   value: InterviewMode;
@@ -87,9 +96,48 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
 
   const [jdSource, setJdSource] = useState<JDSource>("none");
   const [savedJob, setSavedJob] = useState<SavedJobAnalysis | null>(null);
-  const [jobUrl, setJobUrl] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [trackerApps, setTrackerApps] = useState<TrackerApplication[]>([]);
+  const [selectedTrackerAppId, setSelectedTrackerAppId] = useState<string>("");
+  const [selectedAnalysis, setSelectedAnalysis] = useState<any>(null);
+
+  useEffect(() => {
+    fetch("/api/jobs/applications")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.applications)) {
+          setTrackerApps(d.applications.map((a: any) => ({
+            id: a.id,
+            status: a.status,
+            jobTitle: a.jobTitle,
+            company: a.company,
+            location: a.location,
+            appliedDate: a.appliedDate || a.createdAt,
+            description: a.description,
+            analysis: a.analysis,
+          })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const applyTrackerApp = (app: TrackerApplication) => {
+    setCompanyName(app.company);
+    setRoleTitle(app.jobTitle);
+    setSelectedTrackerAppId(app.id);
+    setSelectedAnalysis(app.analysis || null);
+    const parts = [
+      app.analysis?.companyInfo && `About: ${app.analysis.companyInfo}`,
+      app.analysis?.requiredSkills?.length && `Required Skills: ${app.analysis.requiredSkills.join(", ")}`,
+      app.analysis?.qualifications?.length && `Qualifications:\n${app.analysis.qualifications.join("\n")}`,
+      app.analysis?.responsibilities?.length && `Responsibilities:\n${app.analysis.responsibilities.join("\n")}`,
+      app.description && `Job Description:\n${app.description}`,
+    ].filter(Boolean).join("\n\n");
+
+    setJobDescription(parts);
+    setJdSource(parts.trim() ? "saved" : "none");
+  };
 
   useEffect(() => {
     try {
@@ -97,6 +145,16 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
       if (stored) {
         const parsed = JSON.parse(stored) as SavedJobAnalysis;
         setSavedJob(parsed);
+      }
+
+      const ctx = localStorage.getItem("interviewContext");
+      if (ctx) {
+        const parsed = JSON.parse(ctx);
+        if (parsed.companyName) setCompanyName(parsed.companyName);
+        if (parsed.roleTitle) setRoleTitle(parsed.roleTitle);
+        if (parsed.jobDescription) setJobDescription(parsed.jobDescription);
+        if (parsed.jobDescription) setJdSource("saved");
+        localStorage.removeItem("interviewContext");
       }
     } catch {}
   }, []);
@@ -107,38 +165,6 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
     setJobDescription(savedJob.description);
     if (savedJob.analysis.company) setCompanyName(savedJob.analysis.company);
     if (savedJob.analysis.role) setRoleTitle(savedJob.analysis.role);
-  };
-
-  const analyzeFromUrl = async () => {
-    if (!jobUrl.trim()) return;
-    setIsAnalyzing(true);
-    setAnalyzeError(null);
-    try {
-      const res = await fetch("/api/jobs/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: jobUrl.trim() }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || `HTTP ${res.status}`);
-      }
-      const { description, analysis } = await res.json();
-      setJobDescription(description);
-      if (analysis.company) setCompanyName(analysis.company);
-      if (analysis.role) setRoleTitle(analysis.role);
-      setJdSource("url");
-      localStorage.setItem(
-        "currentJobAnalysis",
-        JSON.stringify({ description, analysis })
-      );
-    } catch (err) {
-      setAnalyzeError(
-        err instanceof Error ? err.message : "Failed to analyze URL"
-      );
-    } finally {
-      setIsAnalyzing(false);
-    }
   };
 
   const analyzeFromPaste = async () => {
@@ -174,16 +200,24 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
   const clearJd = () => {
     setJdSource("none");
     setJobDescription("");
-    setJobUrl("");
     setAnalyzeError(null);
   };
 
   const handleStart = () => {
     if (!mode) return;
-    onStart({ mode, companyName, roleTitle, jobDescription });
+    onStart({ mode, companyName, roleTitle, jobDescription, analysis: selectedAnalysis || undefined });
   };
 
-  const jdLoaded = jdSource !== "none" && jobDescription.trim().length > 0;
+  const getStatusColor = (status: TrackerApplication["status"]) => {
+    switch (status) {
+      case "applied": return "bg-blue-100 text-blue-800";
+      case "interview": return "bg-yellow-100 text-yellow-800";
+      case "offer": return "bg-green-100 text-green-800";
+      case "accepted": return "bg-emerald-100 text-emerald-800";
+      case "rejected": return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -239,127 +273,215 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
               <CardTitle className="text-base">Job Description</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {jdLoaded ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-green-600">
-                      <Check className="w-4 h-4" />
-                      <span>
-                        JD loaded
-                        {jdSource === "saved"
-                          ? " from previous analysis"
-                          : jdSource === "url"
-                            ? " from URL"
-                            : ""}
-                      </span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearJd}
-                      className="text-muted-foreground"
-                    >
-                      <X className="w-4 h-4 mr-1" />
-                      Clear
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground line-clamp-3">
-                    {jobDescription.slice(0, 300)}...
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {savedJob && (
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start"
-                      onClick={applySavedJob}
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      Use saved JD
-                      {savedJob.analysis.company &&
-                        ` — ${savedJob.analysis.company}`}
-                      {savedJob.analysis.role &&
-                        `, ${savedJob.analysis.role}`}
-                    </Button>
-                  )}
-
+              <div className="space-y-3">
+                {trackerApps.length > 0 && (
                   <div className="space-y-2">
-                    <Label className="text-sm">From URL</Label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          placeholder="https://linkedin.com/jobs/..."
-                          value={jobUrl}
-                          onChange={(e) => setJobUrl(e.target.value)}
-                          onKeyDown={(e) =>
-                            e.key === "Enter" && analyzeFromUrl()
-                          }
-                          className="pl-10"
-                        />
-                      </div>
-                      <Button
-                        onClick={analyzeFromUrl}
-                        disabled={!jobUrl.trim() || isAnalyzing}
-                        size="sm"
-                      >
-                        {isAnalyzing ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          "Fetch"
-                        )}
-                      </Button>
+                    <Label className="text-sm">From Application Tracker</Label>
+                    <div className="max-h-64 overflow-y-auto space-y-2 rounded-md border p-2">
+                      {trackerApps
+                        .filter((a) => a.status !== "rejected" && a.status !== "accepted")
+                        .map((app) => {
+                          const selected = selectedTrackerAppId === app.id;
+                          return (
+                            <button
+                              key={app.id}
+                              type="button"
+                              onClick={() => applyTrackerApp(app)}
+                              className={`w-full text-left rounded-lg border p-3 transition-colors ${
+                                selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium truncate">{app.jobTitle}</p>
+                                  <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                    <span className="inline-flex items-center gap-1">
+                                      <Building className="w-3.5 h-3.5" />
+                                      {app.company}
+                                    </span>
+                                    {app.location && (
+                                      <span className="inline-flex items-center gap-1">
+                                        <MapPin className="w-3.5 h-3.5" />
+                                        {app.location}
+                                      </span>
+                                    )}
+                                    {app.appliedDate && (
+                                      <span className="inline-flex items-center gap-1">
+                                        <Calendar className="w-3.5 h-3.5" />
+                                        {new Date(app.appliedDate).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <Badge className={getStatusColor(app.status)}>
+                                  <Briefcase className="w-3.5 h-3.5 mr-1" />
+                                  <span className="capitalize">{app.status}</span>
+                                </Badge>
+                              </div>
+                            </button>
+                          );
+                        })}
                     </div>
                   </div>
+                )}
 
+                {savedJob && trackerApps.length > 0 && (
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
                       <span className="w-full border-t" />
                     </div>
                     <div className="relative flex justify-center text-xs">
                       <span className="bg-card px-2 text-muted-foreground">
-                        or paste
+                        or use previous analysis
                       </span>
                     </div>
                   </div>
+                )}
 
-                  <Textarea
-                    placeholder="Paste the full job description here..."
-                    value={jobDescription}
-                    onChange={(e) => {
-                      setJobDescription(e.target.value);
-                      if (e.target.value.trim()) setJdSource("paste");
-                      else setJdSource("none");
-                    }}
-                    rows={5}
-                    className="resize-none text-sm"
-                  />
+                {savedJob && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={applySavedJob}
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Use saved JD
+                    {savedJob.analysis.company &&
+                      ` — ${savedJob.analysis.company}`}
+                    {savedJob.analysis.role &&
+                      `, ${savedJob.analysis.role}`}
+                  </Button>
+                )}
 
-                  {jdSource === "paste" && jobDescription.trim() && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={analyzeFromPaste}
-                      disabled={isAnalyzing}
-                      className="w-full"
-                    >
-                      {isAnalyzing ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Analyzing...
-                        </>
-                      ) : (
-                        "Analyze & auto-fill company/role"
+                {selectedAnalysis ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">Context sent to interviewer and coach:</p>
+                      <Button variant="ghost" size="sm" onClick={() => { clearJd(); setSelectedAnalysis(null); }} className="text-muted-foreground">
+                        <X className="w-4 h-4 mr-1" /> Clear
+                      </Button>
+                    </div>
+
+                    {selectedAnalysis.companyInfo && (
+                      <div className="text-sm">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">About</span>
+                        <p className="mt-1 text-muted-foreground">{selectedAnalysis.companyInfo}</p>
+                      </div>
+                    )}
+
+                    {selectedAnalysis.requiredSkills?.length > 0 && (
+                      <div>
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Required Skills</span>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {selectedAnalysis.requiredSkills.map((s: string, i: number) => (
+                            <span key={i} className="text-xs px-2 py-0.5 rounded-md bg-foreground/10 font-medium">{s}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedAnalysis.preferredSkills?.length > 0 && (
+                      <div>
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Preferred Skills</span>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {selectedAnalysis.preferredSkills.map((s: string, i: number) => (
+                            <span key={i} className="text-xs px-2 py-0.5 rounded-md bg-muted text-muted-foreground">{s}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedAnalysis.qualifications?.length > 0 && (
+                      <div>
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Qualifications</span>
+                        <ul className="mt-1 space-y-1">
+                          {selectedAnalysis.qualifications.map((q: string, i: number) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground mt-[7px] shrink-0" />
+                              {q}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {selectedAnalysis.responsibilities?.length > 0 && (
+                      <div>
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Responsibilities</span>
+                        <ul className="mt-1 space-y-1">
+                          {selectedAnalysis.responsibilities.map((r: string, i: number) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground mt-[7px] shrink-0" />
+                              {r}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {selectedAnalysis.experienceLevel && (
+                      <div className="text-xs">
+                        <span className="font-medium">Level:</span> {selectedAnalysis.experienceLevel}
+                        {selectedAnalysis.experience && ` · ${selectedAnalysis.experience}`}
+                      </div>
+                    )}
+
+                    {selectedAnalysis.workType && (
+                      <div className="text-xs">
+                        <span className="font-medium">Work Type:</span> {selectedAnalysis.workType}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        Or paste a job description:
+                      </p>
+                      {jobDescription.trim() && (
+                        <Button variant="ghost" size="sm" onClick={clearJd} className="text-muted-foreground">
+                          <X className="w-4 h-4 mr-1" /> Clear
+                        </Button>
                       )}
-                    </Button>
-                  )}
+                    </div>
 
-                  {analyzeError && (
-                    <p className="text-xs text-destructive">{analyzeError}</p>
-                  )}
-                </div>
-              )}
+                    <Textarea
+                      placeholder="Paste the full job description here..."
+                      value={jobDescription}
+                      onChange={(e) => {
+                        setJobDescription(e.target.value);
+                        if (e.target.value.trim()) setJdSource("paste");
+                        else setJdSource("none");
+                      }}
+                      rows={5}
+                      className="resize-none text-sm"
+                    />
+
+                    {jdSource === "paste" && jobDescription.trim() && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={analyzeFromPaste}
+                        disabled={isAnalyzing}
+                        className="w-full"
+                      >
+                        {isAnalyzing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Analyzing...
+                          </>
+                        ) : (
+                          "Analyze & auto-fill company/role"
+                        )}
+                      </Button>
+                    )}
+
+                    {analyzeError && (
+                      <p className="text-xs text-destructive">{analyzeError}</p>
+                    )}
+                  </>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -410,63 +532,109 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
           </Card>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">How It Works</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Step n={1} title="AI Interviewer">
-              A voice-powered AI conducts a realistic interview matched to the
-              stage you selected. Each mode has a distinct persona and question
-              style.
-            </Step>
-            <Step n={2} title="Live Transcript">
-              Everything is transcribed in real-time so you can focus on the
-              conversation.
-            </Step>
-            <Step n={3} title="AI Coach">
-              Your personal coach analyzes each question and suggests talking
-              points, frameworks, and openers — visible only to you.
-            </Step>
-            <Step n={4} title="Review & Improve">
-              After the interview, review your transcript, per-question
-              feedback, and overall score.
-            </Step>
-
-            <div className="mt-4 p-4 bg-muted rounded-lg">
-              <h5 className="font-medium mb-2 text-sm">Tips</h5>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>Use a quiet environment with a good mic</li>
-                <li>Speak clearly at a normal pace</li>
-                <li>Add a job description for tailored questions</li>
-                <li>Treat it like a real interview</li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
+        <ResumePanel />
       </div>
     </div>
   );
 }
 
-function Step({
-  n,
-  title,
-  children,
-}: {
-  n: number;
-  title: string;
-  children: React.ReactNode;
-}) {
+interface ResumeData {
+  name?: string;
+  summary?: string;
+  experience?: { company?: string; role?: string; description?: string; startDate?: string; endDate?: string }[];
+  skills?: string[];
+  education?: { school?: string; degree?: string; field?: string }[];
+}
+
+function ResumePanel() {
+  const storage = useAuthenticatedStorage();
+  const resume = useMemo<ResumeData | null>(() => {
+    return storage.getItem("parsedResumeData") || null;
+  }, [storage]);
+
+  if (!resume) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <User className="w-4 h-4" />
+            Your Resume
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            No resume uploaded yet. Upload one on the Dashboard to see your context here.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <div className="flex items-start gap-3">
-      <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium shrink-0">
-        {n}
-      </div>
-      <div>
-        <h4 className="font-medium text-sm">{title}</h4>
-        <p className="text-sm text-muted-foreground">{children}</p>
-      </div>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <User className="w-4 h-4" />
+          Your Resume
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4 overflow-y-auto">
+        {resume.name && (
+          <div className="text-sm font-medium">{resume.name}</div>
+        )}
+
+        {resume.summary && (
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Summary</span>
+            <p className="mt-1 text-sm text-muted-foreground">{resume.summary}</p>
+          </div>
+        )}
+
+        {resume.skills && resume.skills.length > 0 && (
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Skills</span>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {resume.skills.slice(0, 25).map((s, i) => (
+                <span key={i} className="text-xs px-2 py-0.5 rounded-md bg-foreground/10 font-medium">{s}</span>
+              ))}
+              {resume.skills.length > 25 && (
+                <span className="text-xs px-2 py-0.5 text-muted-foreground">+{resume.skills.length - 25} more</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {resume.experience && resume.experience.length > 0 && (
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Experience</span>
+            <div className="mt-2 space-y-3">
+              {resume.experience.slice(0, 4).map((exp, i) => (
+                <div key={i} className="border-l-2 border-primary/20 pl-3">
+                  <div className="text-sm font-medium">{exp.role}</div>
+                  <div className="text-xs text-muted-foreground">{exp.company}</div>
+                  {exp.description && (
+                    <p className="mt-1 text-xs text-muted-foreground line-clamp-3">{exp.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {resume.education && resume.education.length > 0 && (
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Education</span>
+            <div className="mt-1.5 space-y-1">
+              {resume.education.map((edu, i) => (
+                <div key={i} className="text-sm">
+                  <span className="font-medium">{edu.degree}{edu.field && `, ${edu.field}`}</span>
+                  {edu.school && <span className="text-muted-foreground"> — {edu.school}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

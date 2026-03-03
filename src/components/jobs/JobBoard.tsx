@@ -24,51 +24,12 @@ import {
   FileText,
 } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
-import { SimpleLocationInput } from "@/components/ui/SimpleLocationInput";
+import { GooglePlacesAutocomplete } from "@/components/shared/AutoComplete";
+import { CompanyLogo } from "@/components/jobs/CompanyLogo";
 import { cn } from "@/lib/utils";
 import { scoreColor } from "@/lib/resumeJobMatch";
 import type { ParsedResume } from "@/lib/schema";
-
-interface Job {
-  id: string;
-  title: string;
-  company: string;
-  employer_logo?: string | null;
-  location: string;
-  description: string;
-  url?: string;
-  job_apply_link?: string | null;
-  posted: string;
-  job_posted_at_datetime_utc?: string | null;
-  salary?: string | null;
-  job_min_salary?: number | null;
-  job_max_salary?: number | null;
-  job_salary_period?: string | null;
-  type: string;
-  job_is_remote?: boolean;
-  job_highlights?: {
-    Qualifications?: string[];
-    Responsibilities?: string[];
-    Benefits?: string[];
-  } | null;
-  source?: string;
-  tags?: string[];
-  fitScore?: number;
-  matchScore?: number;
-  matchReasons?: string[];
-  matchedSkills?: string[];
-  missingSkills?: string[];
-  analysis?: {
-    companyInfo?: string;
-    experience?: string;
-    experienceLevel?: string;
-    requiredSkills?: string[];
-    preferredSkills?: string[];
-    responsibilities?: string[];
-    qualifications?: string[];
-    workType?: string;
-  };
-}
+import type { Job } from "@/types/job";
 
 interface JobBoardProps {
   onAddToTracker: (job: Job) => void;
@@ -433,8 +394,8 @@ export default function JobBoard({ onAddToTracker, resumeData }: JobBoardProps) 
             )}
           </div>
 
-          <div className="relative flex-1 sm:max-w-[280px] [&_input]:h-11 [&_input]:text-sm [&_input]:focus:border-blue-400 [&_input]:focus:ring-2 [&_input]:focus:ring-blue-100">
-            <SimpleLocationInput
+          <div className="location-input">
+            <GooglePlacesAutocomplete
               value={location}
               onChange={setLocation}
               placeholder="City, state, or remote"
@@ -460,10 +421,6 @@ export default function JobBoard({ onAddToTracker, resumeData }: JobBoardProps) 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2">
           <SlidersHorizontal className="w-3.5 h-3.5 text-gray-400" />
-
-          <button className={cn(chipCls, fRemote ? chipOn : chipOff)} onClick={() => setFRemote(!fRemote)}>
-            <Globe className="w-3 h-3" /> Remote
-          </button>
 
           <FilterDropdown
             label="Role Type"
@@ -697,119 +654,6 @@ export default function JobBoard({ onAddToTracker, resumeData }: JobBoardProps) 
 
 /* ═══════════════════  Job Card  ═══════════════════ */
 
-function companyToLogo(name: string): string | null {
-  const map: Record<string, string> = {
-    "netflix": "netflix.com",
-    "google": "google.com",
-    "meta": "meta.com",
-    "apple": "apple.com",
-    "amazon": "amazon.com",
-    "microsoft": "microsoft.com",
-    "stripe": "stripe.com",
-    "airbnb": "airbnb.com",
-    "uber": "uber.com",
-    "lyft": "lyft.com",
-    "spotify": "spotify.com",
-    "slack": "slack.com",
-    "shopify": "shopify.com",
-    "salesforce": "salesforce.com",
-    "oracle": "oracle.com",
-    "ibm": "ibm.com",
-    "intel": "intel.com",
-    "nvidia": "nvidia.com",
-    "adobe": "adobe.com",
-    "twitter": "x.com",
-    "x": "x.com",
-    "linkedin": "linkedin.com",
-    "snap": "snap.com",
-    "snapchat": "snap.com",
-    "pinterest": "pinterest.com",
-    "reddit": "reddit.com",
-    "discord": "discord.com",
-    "tiktok": "tiktok.com",
-    "bytedance": "bytedance.com",
-    "databricks": "databricks.com",
-    "snowflake": "snowflake.com",
-    "palantir": "palantir.com",
-    "coinbase": "coinbase.com",
-    "robinhood": "robinhood.com",
-    "doordash": "doordash.com",
-    "instacart": "instacart.com",
-    "notion": "notion.so",
-    "figma": "figma.com",
-    "vercel": "vercel.com",
-    "github": "github.com",
-    "gitlab": "gitlab.com",
-    "atlassian": "atlassian.com",
-    "twilio": "twilio.com",
-    "cloudflare": "cloudflare.com",
-    "datadog": "datadoghq.com",
-    "hashicorp": "hashicorp.com",
-    "elastic": "elastic.co",
-    "mongodb": "mongodb.com",
-    "supabase": "supabase.com",
-    "openai": "openai.com",
-    "anthropic": "anthropic.com",
-    "capital one": "capitalone.com",
-    "jpmorgan": "jpmorgan.com",
-    "goldman sachs": "goldmansachs.com",
-    "morgan stanley": "morganstanley.com",
-    "deloitte": "deloitte.com",
-    "accenture": "accenture.com",
-    "mckinsey": "mckinsey.com",
-    "walmart": "walmart.com",
-    "target": "target.com",
-    "costco": "costco.com",
-    "nike": "nike.com",
-    "tesla": "tesla.com",
-    "spacex": "spacex.com",
-    "boeing": "boeing.com",
-    "lockheed martin": "lockheedmartin.com",
-    "raytheon": "rtx.com",
-    "northrop grumman": "northropgrumman.com",
-    "general motors": "gm.com",
-    "ford": "ford.com",
-    "tinder": "tinder.com",
-    "match group": "match.com",
-    "zillow": "zillow.com",
-    "redfin": "redfin.com",
-    "plaid": "plaid.com",
-    "rippling": "rippling.com",
-    "gusto": "gusto.com",
-    "square": "squareup.com",
-    "block": "block.xyz",
-    "paypal": "paypal.com",
-    "visa": "visa.com",
-    "mastercard": "mastercard.com",
-  };
-  const key = name.toLowerCase().trim();
-  const domain = map[key];
-  if (domain) return `https://logo.clearbit.com/${domain}`;
-  const simple = key.replace(/[^a-z0-9]/g, "") + ".com";
-  return `https://logo.clearbit.com/${simple}`;
-}
-
-function Logo({ src, name }: { src?: string | null; name: string }) {
-  const letter = (name || "?")[0].toUpperCase();
-  const logoUrl = src || companyToLogo(name);
-
-  return (
-    <div className="w-11 h-11 rounded-lg bg-white border flex items-center justify-center flex-shrink-0 overflow-hidden">
-      <img
-        src={logoUrl || ""}
-        alt=""
-        className="w-8 h-8 object-contain"
-        onError={(e) => {
-          const el = e.target as HTMLImageElement;
-          el.style.display = "none";
-          el.parentElement!.classList.add("bg-gray-100");
-          el.parentElement!.innerHTML = `<span class="text-gray-400 text-base font-bold">${letter}</span>`;
-        }}
-      />
-    </div>
-  );
-}
-
 function JobCard({
   job,
   active,
@@ -836,11 +680,18 @@ function JobCard({
     >
       <div className="p-3.5">
         <div className="flex gap-3">
-          <Logo src={job.employer_logo} name={job.company} />
+          <CompanyLogo src={job.employer_logo} url={job.url} size="md" />
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-[13.5px] text-gray-900 leading-snug line-clamp-1">{job.title}</p>
             <p className="text-[13px] text-gray-600 leading-snug">{job.company}</p>
-            <p className="text-[12px] text-gray-500 mt-0.5">{job.location || "—"}{job.salary ? ` · ${job.salary}` : ""}</p>
+            <p className="text-[12px] text-gray-500 mt-0.5">
+              {job.location || "—"}
+              {(job.job_min_salary || job.salary) && (
+                <span className="text-gray-400"> · {job.job_min_salary && job.job_max_salary
+                  ? `$${Math.round(job.job_min_salary / 1000)}k–$${Math.round(job.job_max_salary / 1000)}k`
+                  : job.salary}</span>
+              )}
+            </p>
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); onBookmark(); }}
@@ -857,6 +708,14 @@ function JobCard({
         <div className="flex items-center gap-2 mt-2 text-[11px] text-gray-400">
           <span>{timeAgo(job.job_posted_at_datetime_utc || job.posted)}</span>
           {job.job_is_remote && <span className="text-emerald-600 font-medium">Remote</span>}
+          {matchPct > 0 && (
+            <span className={cn(
+              "font-semibold",
+              matchPct >= 75 ? "text-green-600" : matchPct >= 50 ? "text-amber-600" : "text-orange-500",
+            )}>
+              {matchPct}% match
+            </span>
+          )}
           {job.matchedSkills && job.matchedSkills.length > 0 && (
             <span className="text-gray-500 truncate">{job.matchedSkills.slice(0, 3).join(", ")}</span>
           )}
@@ -897,7 +756,7 @@ function DetailPanel({
       {/* Header */}
       <div className="p-5 border-b">
         <div className="flex gap-4">
-          <Logo src={job.employer_logo} name={job.company} />
+          <CompanyLogo src={job.employer_logo} url={job.url} size="md" />
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-gray-900 leading-snug">{job.title}</h2>
             <div className="flex items-center gap-2 mt-0.5">
@@ -920,15 +779,24 @@ function DetailPanel({
           )}
         </div>
 
-        {/* Salary */}
-        {(job.job_min_salary || job.salary) && (
-          <div className="mt-3 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-50 text-green-800 text-sm font-semibold">
-            <DollarSign className="w-3.5 h-3.5" />
-            {job.job_min_salary && job.job_max_salary
-              ? `${Math.round(job.job_min_salary / 1000)}k – ${Math.round(job.job_max_salary / 1000)}k${job.job_salary_period ? ` / ${job.job_salary_period.toLowerCase()}` : ""}`
-              : job.salary}
-          </div>
-        )}
+        {/* Salary & Match */}
+        <div className="flex items-center gap-4 mt-2">
+          {(job.job_min_salary || job.salary) && (
+            <span className="text-sm text-gray-500">
+              {job.job_min_salary && job.job_max_salary
+                ? `$${Math.round(job.job_min_salary / 1000)}k – $${Math.round(job.job_max_salary / 1000)}k${job.job_salary_period ? ` / ${job.job_salary_period.toLowerCase()}` : ""}`
+                : job.salary}
+            </span>
+          )}
+          {(job.matchScore ?? 0) > 0 && (
+            <span className={cn(
+              "text-sm font-semibold",
+              (job.matchScore ?? 0) >= 75 ? "text-green-600" : (job.matchScore ?? 0) >= 50 ? "text-amber-600" : "text-orange-500",
+            )}>
+              {job.matchScore}% match
+            </span>
+          )}
+        </div>
 
         {/* Actions */}
         <div className="flex items-center gap-2.5 mt-4">
@@ -973,7 +841,7 @@ function DetailPanel({
                 </div>
               </div>
             )}
-            {job.missingSkills && job.missingSkills.length > 0 && (
+            {/* {job.missingSkills && job.missingSkills.length > 0 && (
               <div>
                 <p className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider mb-1.5">Skills to develop</p>
                 <div className="flex flex-wrap gap-1.5">
@@ -982,7 +850,7 @@ function DetailPanel({
                   ))}
                 </div>
               </div>
-            )}
+            )} */}
           </Section>
         ) : job.matchReasons && job.matchReasons.length > 0 ? (
           <Section title="Match">
@@ -1061,10 +929,10 @@ function DetailPanel({
               <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{job.description}</p>
             </Section>
 
-            {job.tags && job.tags.length > 0 && (
+            {job.tags && job.tags.filter(t => t.length < 40).length > 0 && (
               <Section title="Skills">
                 <div className="flex flex-wrap gap-1.5">
-                  {job.tags.map((t, i) => (
+                  {job.tags.filter(t => t.length < 40).map((t, i) => (
                     <span key={i} className="text-xs px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700 font-medium">{t}</span>
                   ))}
                 </div>

@@ -30,6 +30,10 @@ const EDITABLE_CSS = `
 
 const BASE_RESET = `
   .resume-page *, .resume-page *::before, .resume-page *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  .resume-page b, .resume-page strong { font-weight: bold; }
+  .resume-page i, .resume-page em { font-style: italic; }
+  .resume-page u { text-decoration: underline; }
+  .resume-page s, .resume-page strike { text-decoration: line-through; }
 `;
 
 export const TEMPLATES: ResumeTemplate[] = [

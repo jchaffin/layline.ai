@@ -12,6 +12,35 @@ import {
 } from "@/lib/resumeTemplate";
 import { getTemplateCSS } from "@/lib/resumeTemplates";
 
+function stripBlockTags(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/?(div|p|ul|ol|li)[^>]*>/gi, "");
+}
+
+function parseBullets(desc: string): string[] {
+  if (!desc || !desc.trim()) return [];
+  const isHtml = /<[a-z][\s\S]*>/i.test(desc);
+  if (isHtml) {
+    const liMatches = desc.match(/<li>([\s\S]*?)<\/li>/gi);
+    if (liMatches) {
+      return liMatches
+        .map((li) => li.replace(/<\/?li>/gi, "").replace(/<br\s*\/?>/gi, "").trim())
+        .filter(Boolean);
+    }
+    return stripBlockTags(desc)
+      .split("\n")
+      .map((l) => l.replace(/^\s*(?:•|-)\s*/, "").trim())
+      .filter(Boolean);
+  }
+  return desc
+    .split(/(?:^|\n)\s*(?:•|-)\s*/)
+    .filter(Boolean)
+    .map((l) => l.trim());
+}
+
 interface LiveResumeEditorProps {
   resumeData: ResumeData;
   onDataChange: (data: ResumeData) => void;
@@ -154,19 +183,18 @@ export default function LiveResumeEditor({
   const pageHeight = 11 * 96;
 
   return (
-    <div className="h-full bg-white relative">
+    <div className="h-full bg-gray-200 relative">
       <style dangerouslySetInnerHTML={{ __html: getTemplateCSS(templateId) }} />
-      <div className="h-full overflow-hidden">
-        <div
-          ref={pageRef}
-          className="resume-page"
-          style={{
-            width: "100%",
-            minHeight: `${pageHeight}px`,
-            transform: `translateY(-${(currentPage - 1) * pageHeight}px)`,
-            transition: "transform 0.3s ease",
-          }}
-        >
+      <div className="h-full overflow-auto p-6">
+        <div className="relative mx-auto" style={{ width: "8.5in" }}>
+          <div
+            ref={pageRef}
+            className="resume-page bg-white shadow-lg relative"
+            style={{
+              width: "8.5in",
+              minHeight: `${pageHeight}px`,
+            }}
+          >
         {/* Left column */}
         <div className="resume-left">
           {/* Header */}
@@ -190,12 +218,9 @@ export default function LiveResumeEditor({
           {/* Summary */}
           <div className="resume-section">
             <div className="resume-section-title">Professional Summary</div>
-            <EditableField
-              value={data.summary || ""}
-              onChange={(val) => update({ summary: val })}
+            <div
               className="resume-summary"
-              placeholder="Write a brief professional summary..."
-              multiline
+              dangerouslySetInnerHTML={{ __html: data.summary || "" }}
             />
           </div>
 
@@ -226,30 +251,12 @@ export default function LiveResumeEditor({
                     placeholder="Company Name"
                   />
                   <div className="resume-exp-desc">
-                    {(exp.description || "").split(/(?:^|\n)\s*(?:•|-)\s*/).filter(Boolean).map((line, li) => (
+                    {parseBullets(exp.description || "").map((line, li) => (
                       <div key={li} className="resume-bullet-item">
                         <span className="resume-bullet">•</span>
-                        <EditableField
-                          value={line.trim()}
-                          onChange={(val) => {
-                            const lines = (exp.description || "").split(/(?:^|\n)\s*(?:•|-)\s*/).filter(Boolean);
-                            lines[li] = val;
-                            updateExperience(i, { description: lines.map(l => `- ${l.trim()}`).join("\n") });
-                          }}
-                          tag="span"
-                          placeholder="Achievement or responsibility..."
-                        />
+                        <span dangerouslySetInnerHTML={{ __html: line }} />
                       </div>
                     ))}
-                    {!(exp.description || "").trim() && (
-                      <EditableField
-                        value=""
-                        onChange={(val) => updateExperience(i, { description: `- ${val}` })}
-                        className="resume-bullet-item"
-                        placeholder="Describe your responsibilities and achievements..."
-                        multiline
-                      />
-                    )}
                   </div>
                 </div>
               ))}
@@ -398,32 +405,24 @@ export default function LiveResumeEditor({
               ))}
             </div>
           )}
+          </div>
+          {totalPages > 1 && Array.from({ length: totalPages - 1 }, (_, i) => (
+            <div
+              key={i}
+              className="absolute left-0 right-0 pointer-events-none"
+              style={{ top: `${(i + 1) * pageHeight}px` }}
+            >
+              <div className="h-2 bg-gray-200 shadow-[inset_0_2px_4px_rgba(0,0,0,0.1)]" />
+              <div className="text-center -mt-px">
+                <span className="bg-gray-200 text-gray-500 text-[10px] px-2 py-0.5 rounded-b">
+                  Page {i + 2}
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
       </div>
-
-      {/* Page turner */}
-      {totalPages > 1 && <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
-        <div className="flex items-center gap-0.5 bg-[#1e293b] rounded-full px-1.5 py-1 shadow-lg">
-          <button
-            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage <= 1}
-            className="p-1 rounded-full text-white/70 hover:text-white disabled:text-white/30 transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="text-white text-sm font-medium px-2 min-w-[3rem] text-center tabular-nums">
-            {currentPage}/{totalPages}
-          </span>
-          <button
-            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage >= totalPages}
-            className="p-1 rounded-full text-white/70 hover:text-white disabled:text-white/30 transition-colors"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>}
     </div>
   );
 }

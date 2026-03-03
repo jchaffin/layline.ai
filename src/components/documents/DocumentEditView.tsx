@@ -11,6 +11,8 @@ import {
   PenLine,
   Columns2,
   Eye,
+  Loader2,
+  Check,
 } from "lucide-react";
 import DraggableResumeBuilder from "@/components/resume/DraggableResumeBuilder";
 import LiveResumeEditor from "@/components/resume/LiveResumeEditor";
@@ -45,6 +47,8 @@ export default function DocumentEditView({
   const dragging = useRef(false);
   const savingRef = useRef(false);
   const pendingData = useRef<any>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const savedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const saveKey = doc.id
     ?.replace("original-resumes/", "parsed-resumes/")
@@ -54,6 +58,7 @@ export default function DocumentEditView({
     if (!saveKey) return;
     pendingData.current = null;
     savingRef.current = true;
+    setSaveStatus("saving");
     fetch("/api/resume/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -64,19 +69,24 @@ export default function DocumentEditView({
         savingRef.current = false;
         if (pendingData.current) {
           flushSave(pendingData.current);
+        } else {
+          setSaveStatus("saved");
+          clearTimeout(savedTimer.current);
+          savedTimer.current = setTimeout(() => setSaveStatus("idle"), 2000);
         }
       });
   }, [saveKey]);
 
+  useEffect(() => () => clearTimeout(savedTimer.current), []);
+
   const handleDataChange = useCallback((newData: any) => {
     setResumeData(newData);
-    onSave(newData);
     if (savingRef.current) {
       pendingData.current = newData;
     } else {
       flushSave(newData);
     }
-  }, [onSave, flushSave]);
+  }, [flushSave]);
 
   const handleSave = useCallback(() => {
     onSave(resumeData);
@@ -193,6 +203,15 @@ export default function DocumentEditView({
               {docName}
             </button>
           )}
+          {saveStatus !== "idle" && (
+            <span className="ml-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              {saveStatus === "saving" ? (
+                <><Loader2 className="w-3 h-3 animate-spin" /> Saving...</>
+              ) : (
+                <><Check className="w-3 h-3 text-green-500" /> Saved</>
+              )}
+            </span>
+          )}
         </div>
         <div className="flex-1 flex justify-center">
           {centerTabs}
@@ -260,7 +279,7 @@ export default function DocumentEditView({
                     ? { width: `${100 - splitPercent}%` }
                     : undefined
                 }
-                className={`overflow-hidden ${viewMode === "preview" ? "flex-1" : ""}`}
+                className={`overflow-auto ${viewMode === "preview" ? "flex-1" : ""}`}
               >
                 {resumeData ? (
                   <LiveResumeEditor

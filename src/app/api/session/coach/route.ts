@@ -1,16 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSessionKey } from "@layline/agents/handlers";
-
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
-}
+import { createCoachSessionKey } from "@layline/agents/handlers";
 
 export async function POST() {
   try {
@@ -22,10 +11,10 @@ export async function POST() {
       );
     }
 
-    const result = await createSessionKey({ openaiApiKey: apiKey });
+    const result = await createCoachSessionKey({ openaiApiKey: apiKey });
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Session handler error:", error);
+    console.error("Coach session handler error:", error);
     return NextResponse.json(
       { error: "Internal server error", details: String(error) },
       { status: 500 },

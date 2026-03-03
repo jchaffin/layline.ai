@@ -7,35 +7,7 @@ import JobBoard from "./JobBoard";
 import ApplicationTracker from "./ApplicationTracker";
 import JDEditView from "./JDEditView";
 import type { ParsedResume } from "@/lib/schema";
-
-interface Job {
-  id: string;
-  title: string;
-  company: string;
-  location: string;
-  description: string;
-  url?: string;
-  posted: string;
-  salary?: string;
-  type: string;
-  fitScore?: number;
-  matchScore?: number;
-  matchReasons?: string[];
-}
-
-interface Application {
-  id: string;
-  jobTitle: string;
-  company: string;
-  location: string;
-  status: "applied" | "interview" | "rejected" | "offer" | "accepted";
-  appliedDate: Date;
-  jobUrl?: string;
-  notes?: string;
-  salary?: string;
-  description?: string;
-  analysis?: any;
-}
+import type { Job, Application } from "@/types/job";
 
 export default function JobManager({ resumeData }: { resumeData?: ParsedResume | null }) {
   const [applications, setApplications] = useState<Application[]>([]);
@@ -83,7 +55,7 @@ export default function JobManager({ resumeData }: { resumeData?: ParsedResume |
       appliedDate: new Date(),
       jobUrl: job.url,
       notes: job.matchScore ? `Match score: ${job.matchScore}%` : undefined,
-      salary: job.salary,
+      salary: job.salary ?? undefined,
     };
 
     setApplications((prev) => [newApp, ...prev]);
@@ -135,7 +107,15 @@ export default function JobManager({ resumeData }: { resumeData?: ParsedResume |
   };
 
   const handlePracticeInterview = (context: { companyName: string; roleTitle: string; jobDescription: string }) => {
-    sessionStorage.setItem("interviewContext", JSON.stringify(context));
+    const payload = {
+      description: context.jobDescription,
+      analysis: {
+        company: context.companyName,
+        role: context.roleTitle,
+      },
+    };
+    localStorage.setItem("currentJobAnalysis", JSON.stringify(payload));
+    localStorage.setItem("interviewContext", JSON.stringify(context));
     window.location.href = "/interview";
   };
 

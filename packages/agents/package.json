@@ -1,0 +1,46 @@
+{
+  "name": "@layline/agents",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./hooks": {
+      "import": "./dist/hooks/index.js",
+      "types": "./dist/hooks/index.d.ts"
+    },
+    "./handlers": {
+      "import": "./dist/handlers/index.js",
+      "types": "./dist/handlers/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "@jchaffin/voicekit": ">=0.2.0",
+    "@openai/agents": ">=0.5.0"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": false },
+    "@jchaffin/voicekit": { "optional": false },
+    "@openai/agents": { "optional": false }
+  },
+  "dependencies": {
+    "openai": "^6.25.0",
+    "@pinecone-database/pinecone": "^7.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3"
+  }
+}

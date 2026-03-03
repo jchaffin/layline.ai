@@ -91,6 +91,17 @@ export async function POST(request: NextRequest) {
         upsertJobsToDB(liveJobs).catch(() => {});
       }
     } else {
+      // Fast path: when there's no search query and no resume scoring,
+      // paginate directly in DB instead of loading the entire table.
+      if (!resume) {
+        const { jobs, total } = await pagedFromDB(ALLOWED_SOURCES, offset, limit);
+        return NextResponse.json({
+          jobs,
+          total,
+          offset,
+          hasMore: offset + limit < total,
+        });
+      }
       allJobs = await allFromDB(ALLOWED_SOURCES);
     }
 
@@ -127,6 +138,29 @@ async function allFromDB(sources: string[]): Promise<ScrapedJob[]> {
     return rows.map(rowToJob);
   } catch {
     return [];
+  }
+}
+
+async function pagedFromDB(
+  sources: string[],
+  offset: number,
+  limit: number,
+): Promise<{ jobs: ScrapedJob[]; total: number }> {
+  try {
+    const [rows, total] = await Promise.all([
+      db.jobListing.findMany({
+        where: { source: { in: sources } },
+        orderBy: { scrapedAt: "desc" },
+        skip: Math.max(0, offset),
+        take: Math.max(1, Math.min(limit, 200)),
+      }),
+      db.jobListing.count({
+        where: { source: { in: sources } },
+      }),
+    ]);
+    return { jobs: rows.map(rowToJob), total };
+  } catch {
+    return { jobs: [], total: 0 };
   }
 }
 
@@ -255,54 +289,60 @@ async function searchFromDB(
 }
 
 async function upsertJobsToDB(jobs: ScrapedJob[]) {
-  for (const job of jobs) {
-    try {
-      await db.jobListing.upsert({
-        where: { externalId: job.id },
-        update: {
-          title: job.title,
-          company: job.company,
-          employerLogo: job.employer_logo,
-          location: job.location,
-          description: job.description?.slice(0, 10000) || "",
-          url: job.url,
-          applyLink: job.job_apply_link,
-          postedAt: job.job_posted_at_datetime_utc ? new Date(job.job_posted_at_datetime_utc) : null,
-          salary: job.salary,
-          minSalary: job.job_min_salary,
-          maxSalary: job.job_max_salary,
-          salaryPeriod: job.job_salary_period,
-          employmentType: job.type,
-          isRemote: job.job_is_remote || false,
-          source: job.source,
-          highlights: job.job_highlights as any,
-          tags: job.tags || [],
-          scrapedAt: new Date(),
-        },
-        create: {
-          externalId: job.id,
-          title: job.title,
-          company: job.company,
-          employerLogo: job.employer_logo,
-          location: job.location,
-          description: job.description?.slice(0, 10000) || "",
-          url: job.url,
-          applyLink: job.job_apply_link,
-          postedAt: job.job_posted_at_datetime_utc ? new Date(job.job_posted_at_datetime_utc) : null,
-          salary: job.salary,
-          minSalary: job.job_min_salary,
-          maxSalary: job.job_max_salary,
-          salaryPeriod: job.job_salary_period,
-          employmentType: job.type,
-          isRemote: job.job_is_remote || false,
-          source: job.source,
-          highlights: job.job_highlights as any,
-          tags: job.tags || [],
-        },
-      });
-    } catch (e) {
-      console.error(`Upsert failed for ${job.id}:`, e);
-    }
+  const CONCURRENCY = 10;
+  for (let i = 0; i < jobs.length; i += CONCURRENCY) {
+    const batch = jobs.slice(i, i + CONCURRENCY);
+    await Promise.all(
+      batch.map(async (job) => {
+        try {
+          await db.jobListing.upsert({
+            where: { externalId: job.id },
+            update: {
+              title: job.title,
+              company: job.company,
+              employerLogo: job.employer_logo,
+              location: job.location,
+              description: job.description?.slice(0, 10000) || "",
+              url: job.url,
+              applyLink: job.job_apply_link,
+              postedAt: job.job_posted_at_datetime_utc ? new Date(job.job_posted_at_datetime_utc) : null,
+              salary: job.salary,
+              minSalary: job.job_min_salary,
+              maxSalary: job.job_max_salary,
+              salaryPeriod: job.job_salary_period,
+              employmentType: job.type,
+              isRemote: job.job_is_remote || false,
+              source: job.source,
+              highlights: job.job_highlights as any,
+              tags: job.tags || [],
+              scrapedAt: new Date(),
+            },
+            create: {
+              externalId: job.id,
+              title: job.title,
+              company: job.company,
+              employerLogo: job.employer_logo,
+              location: job.location,
+              description: job.description?.slice(0, 10000) || "",
+              url: job.url,
+              applyLink: job.job_apply_link,
+              postedAt: job.job_posted_at_datetime_utc ? new Date(job.job_posted_at_datetime_utc) : null,
+              salary: job.salary,
+              minSalary: job.job_min_salary,
+              maxSalary: job.job_max_salary,
+              salaryPeriod: job.job_salary_period,
+              employmentType: job.type,
+              isRemote: job.job_is_remote || false,
+              source: job.source,
+              highlights: job.job_highlights as any,
+              tags: job.tags || [],
+            },
+          });
+        } catch (e) {
+          console.error(`Upsert failed for ${job.id}:`, e);
+        }
+      }),
+    );
   }
 }
 

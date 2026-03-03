@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import type { Analysis, InterviewStep } from "@/types/job";
 import {
   ArrowLeft,
   Save,
@@ -19,28 +20,6 @@ import {
   Check,
 } from "lucide-react";
 
-interface InterviewStep {
-  step: number;
-  name: string;
-  duration?: string;
-  completed?: boolean;
-}
-
-interface Analysis {
-  company?: string;
-  role?: string;
-  companyInfo?: string;
-  experience?: string;
-  experienceLevel?: string;
-  requiredSkills?: string[];
-  preferredSkills?: string[];
-  responsibilities?: string[];
-  qualifications?: string[];
-  workType?: string;
-  location?: string;
-  keywords?: string[];
-  interviewProcess?: InterviewStep[];
-}
 
 interface JDEditViewProps {
   application: {
@@ -188,7 +167,7 @@ export default function JDEditView({ application, onBack, onSave, onPracticeInte
             <select
               value={analysis.workType || ""}
               onChange={(e) => update("workType", e.target.value)}
-              className="w-full h-10 px-3 text-sm rounded-md border border-gray-200 bg-white outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              className="w-full jd-edit-select"
             >
               <option value="">Select</option>
               <option value="Remote">Remote</option>
@@ -201,7 +180,7 @@ export default function JDEditView({ application, onBack, onSave, onPracticeInte
             <select
               value={analysis.experienceLevel || ""}
               onChange={(e) => update("experienceLevel", e.target.value)}
-              className="w-full h-10 px-3 text-sm rounded-md border border-gray-200 bg-white outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              className="w-full jd-edit-select"
             >
               <option value="">Select</option>
               <option value="Entry">Entry</option>

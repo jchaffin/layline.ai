@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "type": "module",
   "license": "MIT",
+  "workspaces": ["packages/*"],
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "tsx --test src/lib/jobScraper.test.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
@@ -17,7 +19,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@jchaffin/pdf-parse": "^1.1.1",
-    "@jchaffin/voicekit": "^0.2.0",
+    "@jchaffin/voicekit": "^0.2.2",
     "@neondatabase/serverless": "^1.0.2",
     "@openai/agents": "^0.5.2",
     "@pinecone-database/pinecone": "^7.1.0",
