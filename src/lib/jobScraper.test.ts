@@ -45,9 +45,9 @@ test("cleanText decodes entities and strips HTML", () => {
   assert.equal(output, `Senior & Staff Engineer "Platform"`);
 });
 
-test("extractJobTags returns matching tags only", () => {
+test("extractJobTags derives tags from title", () => {
   const tags = extractJobTags("Senior React TypeScript Engineer");
-  assert.deepEqual(tags, ["TypeScript", "React", "Senior", "Engineer"]);
+  assert.deepEqual(tags, ["Senior", "React", "TypeScript", "Engineer"]);
 });
 
 test("removeDuplicateJobs deduplicates by title + company", () => {

@@ -4,12 +4,14 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   useTranscript,
   useRealtimeSession,
+  useEvent,
   type VoiceStatus,
 } from "@jchaffin/voicekit";
 import { openai } from "@jchaffin/voicekit/openai";
 import { createInterviewAgent } from "@/agents/interviewAgent";
 import { createMeAgent } from "@/agents/meAgent";
 import { useCoachSession } from "./useCoachSession";
+import { useAuth } from "@/hooks/useAuth";
 import type {
   InterviewSetupData,
   FeedbackItem,
@@ -20,6 +22,7 @@ import type {
 const adapter = openai();
 
 export function useInterviewSession() {
+  const { user, isAuthenticated } = useAuth();
   const [sessionStatus, setSessionStatus] =
     useState<VoiceStatus>("DISCONNECTED");
   const [feedbackItems, setFeedbackItems] = useState<FeedbackItem[]>([]);
@@ -42,12 +45,34 @@ export function useInterviewSession() {
     statusRef.current = sessionStatus;
   }, [sessionStatus]);
 
-  const { transcriptItems, clearTranscript } = useTranscript();
+  const { transcriptItems, clearTranscript, addTranscriptMessage } =
+    useTranscript();
+  const { loggedEvents } = useEvent();
   const { connect, disconnect, sendUserText, sendEvent, mute, interrupt } =
     useRealtimeSession({
       onConnectionChange: (s) => setSessionStatus(s),
     });
-  const { startCoach, stopCoach, coachStatus } = useCoachSession();
+
+  const { startCoach, stopCoach, coachStatus, regenerate: regenerateCoach, setCodingProblemActive } =
+    useCoachSession();
+
+  const lastEventIdxRef = useRef(0);
+  useEffect(() => {
+    for (let i = lastEventIdxRef.current; i < loggedEvents.length; i++) {
+      const ev = loggedEvents[i];
+      if (
+        ev.eventName === "input_audio_buffer.committed" &&
+        ev.eventData?.item_id
+      ) {
+        addTranscriptMessage(
+          String(ev.eventData.item_id),
+          "user",
+          "",
+        );
+      }
+    }
+    lastEventIdxRef.current = loggedEvents.length;
+  }, [loggedEvents, addTranscriptMessage]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -100,9 +125,16 @@ export function useInterviewSession() {
     }
   };
 
-  const loadResumeSummary = (): string | null => {
+  const getResumeStorageKey = useCallback((): string => {
+    if (typeof window === "undefined") return "parsedResumeData";
+    if (isAuthenticated && user?.id) return `user:${user.id}:parsedResumeData`;
+    return "guest:parsedResumeData";
+  }, [isAuthenticated, user?.id]);
+
+  const loadResumeSummary = useCallback((): string | null => {
     try {
-      const stored = localStorage.getItem("parsedResumeData");
+      const key = getResumeStorageKey();
+      const stored = localStorage.getItem(key);
       if (!stored) return null;
       const resume = JSON.parse(stored);
       const parts: string[] = [];
@@ -125,7 +157,7 @@ export function useInterviewSession() {
     } catch {
       return null;
     }
-  };
+  }, [getResumeStorageKey]);
 
   const startInterview = useCallback(
     async (data: InterviewSetupData) => {
@@ -139,25 +171,27 @@ export function useInterviewSession() {
       setFeedbackItems([]);
       setCoachSuggestions([]);
       setCoachWarnings([]);
-      setIsResearching(true);
 
-      const resumeSummary = loadResumeSummary();
+      const resumeSummary = data.resumeSummary ?? loadResumeSummary();
 
-      const [companyResearch] = await Promise.all([
-        fetchCompanyResearch(
+      let companyResearch = data.companyResearch || null;
+      if (!companyResearch) {
+        setIsResearching(true);
+        companyResearch = await fetchCompanyResearch(
           data.companyName,
           data.roleTitle,
           data.jobDescription
-        ),
-      ]);
-
-      setIsResearching(false);
+        );
+        setIsResearching(false);
+      }
 
       const agent = createInterviewAgent({
         mode: data.mode,
         companyName: data.companyName,
         roleTitle: data.roleTitle,
         jobDescription: data.jobDescription,
+        resumeSummary: resumeSummary || undefined,
+        companyResearch: companyResearch || undefined,
       });
 
       try {
@@ -201,15 +235,16 @@ export function useInterviewSession() {
             roleTitle: data.roleTitle,
             jobDescription: data.jobDescription,
             resumeSummary: resumeSummary || undefined,
+            companyResearch: companyResearch || undefined,
           },
-          audioElement: audioElementRef.current,
-        });
+          interviewAudioEl: audioEl,
+        }).catch((err) => console.error("[coach] startCoach failed:", err));
       } catch (error) {
         console.error("Interview connection failed:", error);
         setSessionStatus("DISCONNECTED");
       }
     },
-    [clearTranscript, connect, sendEvent, startCoach]
+    [clearTranscript, connect, sendEvent, startCoach, loadResumeSummary]
   );
 
   const endInterview = useCallback(async () => {
@@ -241,6 +276,7 @@ export function useInterviewSession() {
       interrupt();
       try {
         sendUserText(text);
+        sendEvent({ type: "response.create" });
       } catch {
         sendEvent({
           type: "conversation.item.create",
@@ -346,5 +382,7 @@ export function useInterviewSession() {
     sendMessage,
     toggleMute,
     coachStatus,
+    regenerateCoach,
+    setCodingProblemActive,
   };
 }

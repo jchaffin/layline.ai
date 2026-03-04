@@ -269,7 +269,7 @@ input[type="search"]:focus,
 textarea:focus,
 select:focus {
   outline: none !important;
-  border-bottom-color: #22c55e !important;
+  border-bottom-color: #000000 !important;
   background: hsl(var(--muted)) !important;
   box-shadow: none !important;
 }

@@ -5,6 +5,8 @@ export interface InterviewContext {
   companyName?: string;
   roleTitle?: string;
   jobDescription?: string;
+  resumeSummary?: string;
+  companyResearch?: string;
 }
 
 export interface MeAgentContext {
@@ -13,6 +15,7 @@ export interface MeAgentContext {
   roleTitle?: string;
   jobDescription?: string;
   resumeSummary?: string;
+  companyResearch?: string;
 }
 
 export interface JobAnalysis {
@@ -34,6 +37,7 @@ export interface InterviewSetupData {
   jobDescription?: string;
   resumeSummary?: string;
   analysis?: JobAnalysis;
+  companyResearch?: string;
 }
 
 export interface FeedbackItem {
@@ -65,4 +69,5 @@ export type NavigationStep =
   | "interview"
   | "live-interview"
   | "mock-interview"
+  | "problems"
   | "other";

@@ -23,6 +23,7 @@ export async function PATCH(
       data: {
         ...(body.status !== undefined && { status: body.status }),
         ...(body.notes !== undefined && { notes: body.notes }),
+        ...(body.jobUrl !== undefined && { jobUrl: body.jobUrl || "" }),
         ...(body.location !== undefined && { location: body.location }),
         ...(body.salaryRange !== undefined && { salaryRange: body.salaryRange }),
         ...(body.description !== undefined && { description: body.description }),

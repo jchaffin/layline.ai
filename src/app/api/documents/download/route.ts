@@ -65,8 +65,8 @@ export async function GET(request: NextRequest) {
 
       return new NextResponse(body as BufferSource, {
         headers: {
-          'Content-Type': response.ContentType || 'application/octet-stream',
-          'Content-Disposition': `attachment; filename="${key.split('/').pop()}"`,
+          'Content-Type': response.ContentType || 'application/pdf',
+          'Content-Disposition': `inline; filename="${key.split('/').pop()}"`,
         },
       });
     }

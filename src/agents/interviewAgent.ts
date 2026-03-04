@@ -59,7 +59,91 @@ const provide_feedback = defineTool({
   },
 });
 
-const tools = [end_interview, provide_feedback] as ToolDefinition[];
+const present_coding_problem = defineTool({
+  name: "present_coding_problem",
+  description:
+    "Present a coding problem from the problem bank for the candidate to solve. " +
+    "Call this during technical interviews when you want the candidate to write code. " +
+    "A code editor will appear in the UI with the problem description.",
+  parameters: {
+    difficulty: {
+      type: "string",
+      description: "easy | medium | hard",
+    },
+    tags: {
+      type: "string",
+      description:
+        "Comma-separated topic tags to filter by (e.g. 'arrays,hash-map'). Optional.",
+    },
+  },
+  required: ["difficulty"],
+  execute: async ({ difficulty, tags }) => {
+    if (typeof window === "undefined") return { success: false, error: "Not in browser" };
+    try {
+      const params = new URLSearchParams({ difficulty });
+      if (tags) {
+        for (const t of tags.split(",")) {
+          params.append("tag", t.trim());
+        }
+      }
+      const res = await fetch(`/api/problems?${params}`);
+      if (!res.ok) return { success: false, error: "Failed to fetch problems" };
+      const { problems } = await res.json();
+      if (!problems?.length) return { success: false, error: "No matching problems found" };
+
+      const pick = problems[Math.floor(Math.random() * problems.length)];
+      const detailRes = await fetch(`/api/problems/${pick.id}`);
+      if (!detailRes.ok) return { success: false, error: "Failed to load problem" };
+      const { problem } = await detailRes.json();
+
+      window.dispatchEvent(
+        new CustomEvent("interview:problem", { detail: { problem } }),
+      );
+
+      return {
+        success: true,
+        problemTitle: problem.title,
+        problemDescription: problem.description,
+        message: `Problem "${problem.title}" has been displayed in the code editor. The candidate can now see the problem and write code. Discuss their approach verbally while they code.`,
+      };
+    } catch (err) {
+      return { success: false, error: String(err) };
+    }
+  },
+});
+
+const review_code = defineTool({
+  name: "review_code",
+  description:
+    "Read the candidate's current code from the code editor so you can discuss it. " +
+    "Call this when you want to see what the candidate has written.",
+  parameters: {},
+  required: [],
+  execute: async () => {
+    if (typeof window === "undefined") return { success: false, error: "Not in browser" };
+    return new Promise<{ success: boolean; code?: string; language?: string; error?: string }>((resolve) => {
+      const handler = (e: Event) => {
+        const detail = (e as CustomEvent).detail;
+        window.removeEventListener("interview:code-response", handler);
+        resolve({ success: true, code: detail.code, language: detail.language });
+      };
+      window.addEventListener("interview:code-response", handler);
+      window.dispatchEvent(new CustomEvent("interview:get-code"));
+      setTimeout(() => {
+        window.removeEventListener("interview:code-response", handler);
+        resolve({ success: false, error: "No code panel active" });
+      }, 2000);
+    });
+  },
+});
+
+const baseTools = [end_interview, provide_feedback] as ToolDefinition[];
+const technicalTools = [
+  end_interview,
+  provide_feedback,
+  present_coding_problem,
+  review_code,
+] as ToolDefinition[];
 
 // ---------------------------------------------------------------------------
 // Mode definitions
@@ -105,12 +189,17 @@ const MODES: Record<InterviewMode, ModeConfig> = {
       "technical depth in their domain. Evaluate both what they know and how they reason under pressure.",
     question_style:
       "- Start with a warm-up: ask about a challenging technical project they've worked on.\n" +
+      "- After the warm-up, call present_coding_problem to give the candidate a real coding problem. " +
+      "Choose difficulty and tags relevant to the role. The problem will appear in a code editor " +
+      "on the candidate's screen.\n" +
+      "- Once the problem is displayed, tell the candidate to talk through their approach as they code. " +
+      "Ask about their choice of data structures, time/space complexity, and edge cases.\n" +
+      "- Use review_code to see what the candidate has written and discuss it.\n" +
       "- Progress to system design: 'How would you design X?' or 'Walk me through the architecture of Y.'\n" +
       "- Ask about tradeoffs: 'Why did you choose that approach over alternatives?'\n" +
       "- Probe edge cases: 'What happens when Z fails?'\n" +
-      "- Ask algorithm/data structure questions relevant to the role.\n" +
       "- Push back on answers to see how they handle pressure and defend decisions.\n" +
-      "- It's fine to go deep on one topic rather than covering many shallowly.",
+      "- Go deep — spend multiple follow-ups on a single problem rather than skimming many.",
     question_count: "6-8",
   },
 
@@ -147,12 +236,15 @@ function build_instructions(ctx: InterviewContext): string {
     ctx.roleTitle && `Role: ${ctx.roleTitle}`,
     `Interview Stage: ${ctx.mode === "recruiter" ? "Recruiter Screen" : ctx.mode === "technical" ? "Technical Interview" : "Final Round"}`,
     ctx.jobDescription && `Job Description:\n${ctx.jobDescription}`,
+    ctx.resumeSummary && `Candidate Resume:\n${ctx.resumeSummary}`,
+    ctx.companyResearch && `Company Research:\n${ctx.companyResearch}`,
   ]
     .filter(Boolean)
     .join("\n");
 
   return `<role>
 You are ${mode.persona}
+${ctx.companyName ? `You work at ${ctx.companyName}.` : ""}
 </role>
 
 <context>
@@ -165,12 +257,14 @@ ${mode.focus}
 
 <rules>
 1. Ask ONE question at a time. Wait for the candidate to finish before continuing.
-2. After each answer, briefly acknowledge it, then call provide_feedback with your assessment.
-3. Ask follow-up questions when answers are vague or incomplete — don't let them off easy.
-4. Base your questions on the candidate's resume and the job description provided in context.
-5. Ask ${mode.question_count} questions total, then wrap up and call end_interview.
-6. Be encouraging but honest. Real interviewers give signal, not just praise.
-7. NEVER reveal you are an AI. Stay in character throughout.
+2. Keep your responses SHORT — 1-2 sentences to acknowledge, then ask the next question. Do NOT ramble or monologue.
+3. After each answer, briefly acknowledge it, then call provide_feedback with your assessment.
+4. Ask follow-up questions when answers are vague or incomplete — don't let them off easy.
+5. Base your questions on the candidate's resume and the job description provided in context.
+6. Ask ${mode.question_count} questions total, then wrap up and call end_interview.
+7. Be encouraging but honest. Real interviewers give signal, not just praise.
+8. NEVER reveal you are an AI. Stay in character throughout.
+9. Be conversational and natural. Real interviewers don't give speeches — they ask questions and listen.
 </rules>
 
 <question_style>
@@ -178,9 +272,8 @@ ${mode.question_style}
 </question_style>
 
 <opening>
-Introduce yourself naturally (use a first name that fits your persona).
-Briefly set expectations for the interview format and duration.
-Then ask your first question.
+Introduce yourself with a first name, ${ctx.companyName ? `say you're with ${ctx.companyName}, ` : ""}and thank the candidate.
+Keep the intro to 2 sentences max, then go straight into your first question.
 </opening>`;
 }
 
@@ -193,7 +286,7 @@ export function createInterviewAgent(ctx: InterviewContext) {
   return createAgent({
     name: mode.name,
     instructions: build_instructions(ctx),
-    tools,
+    tools: ctx.mode === "technical" ? technicalTools : baseTools,
     voice: mode.voice,
   });
 }

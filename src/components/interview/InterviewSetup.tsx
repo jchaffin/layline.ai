@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -17,30 +17,14 @@ import {
   Phone,
   Code,
   Crown,
-  FileText,
   Loader2,
   Check,
   X,
+  Search,
 } from "lucide-react";
 import type { InterviewMode, InterviewSetupData } from "@/types/interview";
-import { useAuthenticatedStorage } from "@/hooks/useAuthStorage";
-
 interface InterviewSetupProps {
   onStart: (setupData: InterviewSetupData) => void;
-}
-
-interface SavedJobAnalysis {
-  description: string;
-  analysis: {
-    company?: string;
-    role?: string;
-    requiredSkills?: string[];
-    preferredSkills?: string[];
-    responsibilities?: string[];
-    experienceLevel?: string;
-    location?: string;
-    workType?: string;
-  };
 }
 
 type JDSource = "none" | "saved" | "paste";
@@ -53,6 +37,14 @@ interface TrackerApplication {
   appliedDate?: string;
   description?: string;
   analysis?: any;
+}
+
+interface ParsedResumePreview {
+  name?: string;
+  summary?: string;
+  skills?: string[];
+  experience?: { company?: string; role?: string; description?: string }[];
+  education?: { school?: string; degree?: string; field?: string }[];
 }
 
 const MODE_OPTIONS: {
@@ -89,18 +81,99 @@ const MODE_OPTIONS: {
 ];
 
 export default function InterviewSetup({ onStart }: InterviewSetupProps) {
-  const [mode, setMode] = useState<InterviewMode | null>(null);
+  const [mode, setMode] = useState<InterviewMode | null>("recruiter");
   const [companyName, setCompanyName] = useState("");
   const [roleTitle, setRoleTitle] = useState("");
   const [jobDescription, setJobDescription] = useState("");
 
   const [jdSource, setJdSource] = useState<JDSource>("none");
-  const [savedJob, setSavedJob] = useState<SavedJobAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [trackerApps, setTrackerApps] = useState<TrackerApplication[]>([]);
   const [selectedTrackerAppId, setSelectedTrackerAppId] = useState<string>("");
   const [selectedAnalysis, setSelectedAnalysis] = useState<any>(null);
+
+  const [researchPhase, setResearchPhase] = useState<"idle" | "loading" | "done">("idle");
+  const [companyResearch, setCompanyResearch] = useState<string | null>(null);
+
+  const [resumeOptions, setResumeOptions] = useState<{ key: string; name: string; type: string }[]>([]);
+  const [selectedResumeKey, setSelectedResumeKey] = useState<string>("");
+  const [selectedResumeSummary, setSelectedResumeSummary] = useState<string | null>(null);
+  const [selectedResumeData, setSelectedResumeData] = useState<ParsedResumePreview | null>(null);
+  const [resumeListLoading, setResumeListLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/resume/versions")
+      .then((r) => r.json())
+      .then((data) => {
+        const groups = data.groups || [];
+        const files: { key: string; name: string; type: string }[] = [];
+        for (const g of groups) {
+          for (const v of g.versions || []) {
+            files.push({
+              key: v.key,
+              name: v.type === "original" ? (g.originalName || v.label) : (v.label || "Tailored"),
+              type: v.type || "original",
+            });
+          }
+        }
+        files.sort((a, b) => a.name.localeCompare(b.name));
+        setResumeOptions(files);
+      })
+      .catch(() => {})
+      .finally(() => setResumeListLoading(false));
+  }, []);
+
+  const selectResume = async (key: string) => {
+    setSelectedResumeKey(key);
+    setSelectedResumeSummary(null);
+    setSelectedResumeData(null);
+    const isTailored = key.includes("tailored-resumes/");
+    try {
+      let raw: any = null;
+      if (isTailored) {
+        const res = await fetch(`/api/resume/parsed?action=get&key=${encodeURIComponent(key)}`);
+        if (res.ok) {
+          const json = await res.json();
+          raw = json.tailoredResume || json;
+        }
+      } else {
+        const parsedKey = key.replace("original-resumes/", "parsed-resumes/").replace(/\.[^.]+$/, "-parsed.json");
+        const res = await fetch(`/api/resume/parsed?action=get&key=${encodeURIComponent(parsedKey)}`);
+        if (res.ok) raw = await res.json();
+      }
+      if (!raw || typeof raw !== "object") return;
+
+      const name = raw.name ?? raw.contact?.name;
+      const preview: ParsedResumePreview = {
+        name,
+        summary: raw.summary,
+        skills: Array.isArray(raw.skills) ? raw.skills : [],
+        experience: Array.isArray(raw.experience)
+          ? raw.experience.map((e: any) => ({ company: e.company, role: e.role, description: e.description }))
+          : [],
+        education: Array.isArray(raw.education)
+          ? raw.education.map((e: any) => ({ school: e.school ?? e.institution, degree: e.degree, field: e.field }))
+          : [],
+      };
+      setSelectedResumeData(preview);
+
+      const parts: string[] = [];
+      if (name) parts.push(`Name: ${name}`);
+      if (raw.summary) parts.push(`Summary: ${raw.summary}`);
+      if (raw.experience?.length) {
+        const exp = raw.experience.slice(0, 3).map((e: any) =>
+          `${e.role || ""} at ${e.company || ""}: ${(e.description || "").slice(0, 200)}`
+        ).join("\n");
+        parts.push(`Recent Experience:\n${exp}`);
+      }
+      if (raw.skills?.length) parts.push(`Skills: ${raw.skills.slice(0, 20).join(", ")}`);
+      setSelectedResumeSummary(parts.join("\n\n"));
+    } catch {
+      setSelectedResumeSummary(null);
+      setSelectedResumeData(null);
+    }
+  };
 
   useEffect(() => {
     fetch("/api/jobs/applications")
@@ -141,12 +214,6 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("currentJobAnalysis");
-      if (stored) {
-        const parsed = JSON.parse(stored) as SavedJobAnalysis;
-        setSavedJob(parsed);
-      }
-
       const ctx = localStorage.getItem("interviewContext");
       if (ctx) {
         const parsed = JSON.parse(ctx);
@@ -158,14 +225,6 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
       }
     } catch {}
   }, []);
-
-  const applySavedJob = () => {
-    if (!savedJob) return;
-    setJdSource("saved");
-    setJobDescription(savedJob.description);
-    if (savedJob.analysis.company) setCompanyName(savedJob.analysis.company);
-    if (savedJob.analysis.role) setRoleTitle(savedJob.analysis.role);
-  };
 
   const analyzeFromPaste = async () => {
     if (!jobDescription.trim()) return;
@@ -203,9 +262,38 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
     setAnalyzeError(null);
   };
 
-  const handleStart = () => {
+  const handleStart = async () => {
     if (!mode) return;
-    onStart({ mode, companyName, roleTitle, jobDescription, analysis: selectedAnalysis || undefined });
+    setResearchPhase("loading");
+    setCompanyResearch(null);
+
+    let research: string | null = null;
+    if (companyName || roleTitle) {
+      try {
+        const res = await fetch("/api/research", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ company: companyName, role: roleTitle, jobDescription }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          research = data.research || null;
+        }
+      } catch {}
+    }
+
+    setCompanyResearch(research);
+    setResearchPhase("done");
+
+    onStart({
+      mode,
+      companyName,
+      roleTitle,
+      jobDescription,
+      analysis: selectedAnalysis || undefined,
+      ...(selectedResumeSummary && { resumeSummary: selectedResumeSummary }),
+      ...(research && { companyResearch: research }),
+    });
   };
 
   const getStatusColor = (status: TrackerApplication["status"]) => {
@@ -218,6 +306,45 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
       default: return "bg-gray-100 text-gray-800";
     }
   };
+
+  if (researchPhase !== "idle") {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-6">
+        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+          {researchPhase === "loading" ? (
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          ) : (
+            <Check className="w-8 h-8 text-primary" />
+          )}
+        </div>
+        <div className="text-center space-y-2">
+          <h2 className="text-xl font-semibold">
+            {researchPhase === "loading" ? "Researching company…" : "Research complete"}
+          </h2>
+          <p className="text-sm text-muted-foreground max-w-md">
+            {researchPhase === "loading"
+              ? `Gathering context on ${companyName || "the company"}${roleTitle ? ` for the ${roleTitle} role` : ""}`
+              : "Starting your interview session…"}
+          </p>
+        </div>
+        {researchPhase === "done" && companyResearch && (
+          <Card className="max-w-2xl w-full">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Search className="w-4 h-4" />
+                Company Research
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
+                {companyResearch}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -323,34 +450,6 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
                         })}
                     </div>
                   </div>
-                )}
-
-                {savedJob && trackerApps.length > 0 && (
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs">
-                      <span className="bg-card px-2 text-muted-foreground">
-                        or use previous analysis
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {savedJob && (
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={applySavedJob}
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Use saved JD
-                    {savedJob.analysis.company &&
-                      ` — ${savedJob.analysis.company}`}
-                    {savedJob.analysis.role &&
-                      `, ${savedJob.analysis.role}`}
-                  </Button>
                 )}
 
                 {selectedAnalysis ? (
@@ -532,109 +631,117 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
           </Card>
         </div>
 
-        <ResumePanel />
+        <div className="space-y-4">
+          {/* Resume selector */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Resume to use
+              </CardTitle>
+              <CardDescription className="text-sm">
+                Choose which resume the interviewer and coach will reference.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {resumeListLoading ? (
+                <p className="text-sm text-muted-foreground">Loading resumes…</p>
+              ) : resumeOptions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No resumes in your account yet. Upload one on the Dashboard.
+                </p>
+              ) : (
+                <div className="max-h-64 overflow-y-auto space-y-2 rounded-md border p-2">
+                  {resumeOptions.map((opt) => {
+                    const selected = selectedResumeKey === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => selectResume(opt.key)}
+                        className={`w-full text-left rounded-lg border p-3 transition-colors ${
+                          selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium truncate">{opt.name}</p>
+                          {opt.type === "tailored" && (
+                            <Badge variant="secondary" className="shrink-0 text-xs">Tailored</Badge>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Parsed resume preview */}
+          {selectedResumeData && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {selectedResumeData.name || "Selected Resume"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {selectedResumeData.summary && (
+                  <div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Summary</span>
+                    <p className="mt-1 text-sm text-muted-foreground">{selectedResumeData.summary}</p>
+                  </div>
+                )}
+
+                {selectedResumeData.skills && selectedResumeData.skills.length > 0 && (
+                  <div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Skills</span>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {selectedResumeData.skills.slice(0, 25).map((s, i) => (
+                        <span key={i} className="text-xs px-2 py-0.5 rounded-md bg-foreground/10 font-medium">{s}</span>
+                      ))}
+                      {selectedResumeData.skills.length > 25 && (
+                        <span className="text-xs px-2 py-0.5 text-muted-foreground">+{selectedResumeData.skills.length - 25} more</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {selectedResumeData.experience && selectedResumeData.experience.length > 0 && (
+                  <div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Experience</span>
+                    <div className="mt-2 space-y-3">
+                      {selectedResumeData.experience.slice(0, 4).map((exp, i) => (
+                        <div key={i} className="border-l-2 border-primary/20 pl-3">
+                          <div className="text-sm font-medium">{exp.role}</div>
+                          <div className="text-xs text-muted-foreground">{exp.company}</div>
+                          {exp.description && (
+                            <p className="mt-1 text-xs text-muted-foreground line-clamp-3">{exp.description}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedResumeData.education && selectedResumeData.education.length > 0 && (
+                  <div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Education</span>
+                    <div className="mt-1.5 space-y-1">
+                      {selectedResumeData.education.map((edu, i) => (
+                        <div key={i} className="text-sm">
+                          <span className="font-medium">{edu.degree}{edu.field && `, ${edu.field}`}</span>
+                          {edu.school && <span className="text-muted-foreground"> — {edu.school}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
-  );
-}
-
-interface ResumeData {
-  name?: string;
-  summary?: string;
-  experience?: { company?: string; role?: string; description?: string; startDate?: string; endDate?: string }[];
-  skills?: string[];
-  education?: { school?: string; degree?: string; field?: string }[];
-}
-
-function ResumePanel() {
-  const storage = useAuthenticatedStorage();
-  const resume = useMemo<ResumeData | null>(() => {
-    return storage.getItem("parsedResumeData") || null;
-  }, [storage]);
-
-  if (!resume) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <User className="w-4 h-4" />
-            Your Resume
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            No resume uploaded yet. Upload one on the Dashboard to see your context here.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <User className="w-4 h-4" />
-          Your Resume
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4 overflow-y-auto">
-        {resume.name && (
-          <div className="text-sm font-medium">{resume.name}</div>
-        )}
-
-        {resume.summary && (
-          <div>
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Summary</span>
-            <p className="mt-1 text-sm text-muted-foreground">{resume.summary}</p>
-          </div>
-        )}
-
-        {resume.skills && resume.skills.length > 0 && (
-          <div>
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Skills</span>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {resume.skills.slice(0, 25).map((s, i) => (
-                <span key={i} className="text-xs px-2 py-0.5 rounded-md bg-foreground/10 font-medium">{s}</span>
-              ))}
-              {resume.skills.length > 25 && (
-                <span className="text-xs px-2 py-0.5 text-muted-foreground">+{resume.skills.length - 25} more</span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {resume.experience && resume.experience.length > 0 && (
-          <div>
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Experience</span>
-            <div className="mt-2 space-y-3">
-              {resume.experience.slice(0, 4).map((exp, i) => (
-                <div key={i} className="border-l-2 border-primary/20 pl-3">
-                  <div className="text-sm font-medium">{exp.role}</div>
-                  <div className="text-xs text-muted-foreground">{exp.company}</div>
-                  {exp.description && (
-                    <p className="mt-1 text-xs text-muted-foreground line-clamp-3">{exp.description}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {resume.education && resume.education.length > 0 && (
-          <div>
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Education</span>
-            <div className="mt-1.5 space-y-1">
-              {resume.education.map((edu, i) => (
-                <div key={i} className="text-sm">
-                  <span className="font-medium">{edu.degree}{edu.field && `, ${edu.field}`}</span>
-                  {edu.school && <span className="text-muted-foreground"> — {edu.school}</span>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
   );
 }

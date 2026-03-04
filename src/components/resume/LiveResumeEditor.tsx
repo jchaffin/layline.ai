@@ -126,16 +126,20 @@ export default function LiveResumeEditor({
   const dataRef = useRef(data);
   dataRef.current = data;
 
+  const pageHeight = 11 * 96;
+
   useEffect(() => {
     const el = pageRef.current;
     if (!el) return;
-    const pageHeight = 11 * 96;
-    const observer = new ResizeObserver(() => {
-      setTotalPages(Math.max(1, Math.ceil(el.scrollHeight / pageHeight)));
-    });
+    const updatePages = () => {
+      const pages = Math.max(1, Math.ceil(el.scrollHeight / pageHeight));
+      setTotalPages(pages);
+    };
+    updatePages();
+    const observer = new ResizeObserver(updatePages);
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [resumeData]);
 
   const update = useCallback(
     (patch: Partial<ResumeData>) => {
@@ -180,12 +184,10 @@ export default function LiveResumeEditor({
 
   const c = data.contact || {};
 
-  const pageHeight = 11 * 96;
-
   return (
     <div className="h-full bg-gray-200 relative">
       <style dangerouslySetInnerHTML={{ __html: getTemplateCSS(templateId) }} />
-      <div className="h-full overflow-auto p-6">
+      <div className="h-full overflow-auto p-0">
         <div className="relative mx-auto" style={{ width: "8.5in" }}>
           <div
             ref={pageRef}
@@ -409,15 +411,14 @@ export default function LiveResumeEditor({
           {totalPages > 1 && Array.from({ length: totalPages - 1 }, (_, i) => (
             <div
               key={i}
-              className="absolute left-0 right-0 pointer-events-none"
+              className="absolute left-0 right-0 pointer-events-none flex items-center gap-2"
               style={{ top: `${(i + 1) * pageHeight}px` }}
             >
-              <div className="h-2 bg-gray-200 shadow-[inset_0_2px_4px_rgba(0,0,0,0.1)]" />
-              <div className="text-center -mt-px">
-                <span className="bg-gray-200 text-gray-500 text-[10px] px-2 py-0.5 rounded-b">
-                  Page {i + 2}
-                </span>
-              </div>
+              <div className="flex-1 h-px bg-gray-300" />
+              <span className="text-[10px] text-gray-400 font-medium tabular-nums">
+                Page {i + 2}
+              </span>
+              <div className="flex-1 h-px bg-gray-300" />
             </div>
           ))}
         </div>

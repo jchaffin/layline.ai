@@ -86,6 +86,7 @@ export interface Analysis {
   company?: string;
   role?: string;
   companyInfo?: string;
+  companyLogoUrl?: string;
   experience?: string;
   experienceLevel?: string;
   requiredSkills?: string[];

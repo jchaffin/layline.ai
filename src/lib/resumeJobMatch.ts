@@ -227,12 +227,29 @@ export function computeMatchScore(resume: ParsedResume, job: JobLike): MatchResu
   const qualText2 = [...(job.job_highlights?.Qualifications || []), job.description || ""].join(" ");
   const requiredYears = extractRequiredYears(qualText2);
 
+  // Infer if job is entry/junior from title/description (lower-level = often lower compensation)
+  const jobTextLower = (job.title || "") + " " + (job.description || "");
+  const isLikelyEntryOrJunior =
+    /\b(entry[- ]level|junior|jr\.?|associate|graduate|intern|0\-?2\s*years?|1\-?3\s*years?)\b/i.test(jobTextLower) ||
+    (requiredYears !== null && requiredYears <= 2);
+
   let levelScore: number;
   if (requiredYears !== null) {
     const diff = resumeYears - requiredYears;
     if (diff >= 0) {
-      levelScore = 15;
-      reasons.push(`Meets ${requiredYears}yr experience requirement`);
+      // Candidate meets or exceeds required years
+      if (isLikelyEntryOrJunior && resumeYears >= 5) {
+        // Over-qualified for entry/junior: cap experience score so match doesn't inflate for lower-level roles
+        levelScore = 8;
+        reasons.push("Likely over-qualified for this level");
+      } else if (diff > 5) {
+        // Significantly more experience than required (any level)
+        levelScore = 10;
+        reasons.push("Meets experience requirement (may be over-qualified)");
+      } else {
+        levelScore = 15;
+        reasons.push(`Meets ${requiredYears}yr experience requirement`);
+      }
     } else if (diff >= -2) {
       levelScore = 10;
       reasons.push(`Close to ${requiredYears}yr experience requirement`);
@@ -240,7 +257,12 @@ export function computeMatchScore(resume: ParsedResume, job: JobLike): MatchResu
       levelScore = 4;
     }
   } else {
-    levelScore = resumeYears > 0 ? 10 : 7;
+    if (isLikelyEntryOrJunior && resumeYears >= 5) {
+      levelScore = 6;
+      reasons.push("Likely over-qualified for this level");
+    } else {
+      levelScore = resumeYears > 0 ? 10 : 7;
+    }
   }
 
   const missingSkills: string[] = [];
@@ -250,7 +272,12 @@ export function computeMatchScore(resume: ParsedResume, job: JobLike): MatchResu
     }
   }
 
-  const total = Math.min(100, Math.round(skillsScore + titleScore + qualScore + levelScore));
+  let total = Math.min(100, Math.round(skillsScore + titleScore + qualScore + levelScore));
+  // Cap match for lower-level roles when candidate is over-qualified so we don't show e.g. 87% for entry-level
+  if (reasons.some((r) => r.includes("over-qualified") || r.includes("overqualified"))) {
+    total = Math.min(total, 78);
+  }
+
   return {
     score: total,
     reasons: reasons.slice(0, 5),

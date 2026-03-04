@@ -32,7 +32,7 @@ import type { ParsedResume } from "@/lib/schema";
 import type { Job } from "@/types/job";
 
 interface JobBoardProps {
-  onAddToTracker: (job: Job) => void;
+  onAddToTracker: (job: Job) => void | Promise<void>;
   resumeData?: ParsedResume | null;
 }
 
@@ -71,6 +71,7 @@ export default function JobBoard({ onAddToTracker, resumeData }: JobBoardProps) 
   const [searching, setSearching] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selected, setSelected] = useState<Job | null>(null);
+  const [trackingId, setTrackingId] = useState<string | null>(null);
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [searched, setSearched] = useState(false);
   const [mobileDetail, setMobileDetail] = useState(false);
@@ -543,9 +544,17 @@ export default function JobBoard({ onAddToTracker, resumeData }: JobBoardProps) 
                   job={selected}
                   bookmarked={saved.has(selected.id)}
                   onBookmark={() => toggle(selected.id)}
-                  onTrack={() => {
-                    onAddToTracker(selected);
-                    toast({ title: "Added to tracker", description: `${selected.title} at ${selected.company}` });
+                  trackingId={trackingId}
+                  onTrack={async () => {
+                    setTrackingId(selected.id);
+                    try {
+                      await onAddToTracker(selected);
+                      toast({ title: "Added to tracker", description: `${selected.title} at ${selected.company}` });
+                    } catch {
+                      toast({ title: "Could not add to tracker", variant: "destructive" });
+                    } finally {
+                      setTrackingId(null);
+                    }
                   }}
                 />
               ) : (
@@ -571,9 +580,17 @@ export default function JobBoard({ onAddToTracker, resumeData }: JobBoardProps) 
                   job={selected}
                   bookmarked={saved.has(selected.id)}
                   onBookmark={() => toggle(selected.id)}
-                  onTrack={() => {
-                    onAddToTracker(selected);
-                    toast({ title: "Added to tracker", description: `${selected.title} at ${selected.company}` });
+                  trackingId={trackingId}
+                  onTrack={async () => {
+                    setTrackingId(selected.id);
+                    try {
+                      await onAddToTracker(selected);
+                      toast({ title: "Added to tracker", description: `${selected.title} at ${selected.company}` });
+                    } catch {
+                      toast({ title: "Could not add to tracker", variant: "destructive" });
+                    } finally {
+                      setTrackingId(null);
+                    }
                   }}
                 />
               </>
@@ -743,12 +760,15 @@ function DetailPanel({
   bookmarked,
   onBookmark,
   onTrack,
+  trackingId,
 }: {
   job: Job;
   bookmarked: boolean;
   onBookmark: () => void;
-  onTrack: () => void;
+  onTrack: () => void | Promise<void>;
+  trackingId?: string | null;
 }) {
+  const isTracking = trackingId === job.id;
   const src = sourceBadge(job.source);
 
   return (
@@ -756,7 +776,7 @@ function DetailPanel({
       {/* Header */}
       <div className="p-5 border-b">
         <div className="flex gap-4">
-          <CompanyLogo src={job.employer_logo} url={job.url} size="md" />
+          <CompanyLogo src={job.employer_logo} url={job.url} companyName={job.company} size="md" />
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-gray-900 leading-snug">{job.title}</h2>
             <div className="flex items-center gap-2 mt-0.5">
@@ -807,10 +827,12 @@ function DetailPanel({
             Apply now <ArrowUpRight className="w-4 h-4" />
           </button>
           <button
-            className="inline-flex items-center gap-1.5 h-10 px-5 border border-gray-300 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 text-gray-700 rounded-full font-semibold text-sm transition-all"
+            className="inline-flex items-center gap-1.5 h-10 px-5 border border-gray-300 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 text-gray-700 rounded-full font-semibold text-sm transition-all disabled:opacity-60 disabled:pointer-events-none"
             onClick={onTrack}
+            disabled={isTracking}
           >
-            <Plus className="w-4 h-4" /> Track
+            {isTracking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            {isTracking ? "Structuring…" : "Track"}
           </button>
           <button
             className={cn(

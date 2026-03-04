@@ -85,26 +85,36 @@ function SortableItem({ id, children }: { id: string; children: React.ReactNode 
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const handleGripClick = (e: React.MouseEvent) => {
+    const group = (e.target as HTMLElement).closest('.group');
+    const collapseBtn = group?.querySelector<HTMLButtonElement>('[data-collapse-trigger]');
+    if (collapseBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      collapseBtn.click();
+    }
+  };
+
+  const grip = (
+    <div
+      {...attributes}
+      {...listeners}
+      className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-accent flex items-center justify-center shrink-0"
+      onClick={handleGripClick}
+    >
+      <GripVertical className="w-4 h-4 text-gray-400" />
+    </div>
+  );
+  const child = React.Children.only(children) as React.ReactElement<{ grip?: React.ReactNode }>;
   return (
     <div ref={setNodeRef} style={style} className="group relative">
-      <div className="absolute left-2 top-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-        <div 
-          {...attributes} 
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-accent"
-        >
-          <GripVertical className="w-4 h-4 text-gray-400" />
-        </div>
-      </div>
-      <div className="pl-8">
-        {children}
-      </div>
+      {React.cloneElement(child, { grip })}
     </div>
   );
 }
 
-// Contact Section Component
-function ContactSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (data: any) => void; onDelete: () => void }) {
+// Contact Section Component (cannot be deleted)
+function ContactSection({ data, onUpdate, grip }: { data: any; onUpdate: (data: any) => void; grip?: React.ReactNode }) {
   const contact = data || {};
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -113,23 +123,21 @@ function ContactSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (da
   };
 
   return (
-    <Card className="mb-6 bg-white border-0 rounded-2xl shadow-none">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div className="flex items-center space-x-2">
-          <User className="w-5 h-5 text-blue-600" />
-          <h3 className="text-lg font-semibold">Contact Information</h3>
+    <Card className="mb-1.5 bg-white border-0 rounded-2xl shadow-none">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+        <div className="flex items-center gap-2 min-w-0">
+          {grip}
+          <h3 className="text-base font-semibold">Contact Information</h3>
         </div>
         <div className="flex items-center space-x-1">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="text-gray-500 hover:text-gray-700"
+            data-collapse-trigger
           >
             {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onDelete} className="text-red-500 hover:text-red-700">
-            <Trash2 className="w-4 h-4" />
           </Button>
         </div>
       </CardHeader>
@@ -216,7 +224,7 @@ function ContactSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (da
 }
 
 // Summary Section Component
-function SummarySection({ data, onUpdate, onDelete }: { data: any; onUpdate: (data: any) => void; onDelete: () => void }) {
+function SummarySection({ data, onUpdate, grip }: { data: any; onUpdate: (data: any) => void; grip?: React.ReactNode }) {
   const [isImproving, setIsImproving] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -252,23 +260,21 @@ function SummarySection({ data, onUpdate, onDelete }: { data: any; onUpdate: (da
   };
 
   return (
-    <Card className="mb-6 bg-white border-0 rounded-2xl shadow-none">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div className="flex items-center space-x-2">
-          <User className="w-5 h-5 text-green-600" />
-          <h3 className="text-lg font-semibold">Professional Summary</h3>
+    <Card className="mb-1.5 bg-white border-0 rounded-2xl shadow-none">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+        <div className="flex items-center gap-2 min-w-0">
+          {grip}
+          <h3 className="text-base font-semibold">Professional Summary</h3>
         </div>
         <div className="flex items-center space-x-1">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="text-gray-500 hover:text-gray-700"
+            data-collapse-trigger
           >
             {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onDelete} className="text-red-500 hover:text-red-700">
-            <Trash2 className="w-4 h-4" />
           </Button>
         </div>
       </CardHeader>
@@ -291,7 +297,7 @@ function SummarySection({ data, onUpdate, onDelete }: { data: any; onUpdate: (da
 }
 
 // Skills Section Component
-function SkillsSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (data: any) => void; onDelete: () => void }) {
+function SkillsSection({ data, onUpdate, grip }: { data: any; onUpdate: (data: any) => void; grip?: React.ReactNode }) {
   const skills = data || [];
   const [newSkill, setNewSkill] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -308,23 +314,21 @@ function SkillsSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (dat
   };
 
   return (
-    <Card className="mb-6 bg-white border-0 rounded-2xl shadow-none">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div className="flex items-center space-x-2">
-          <Award className="w-5 h-5 text-purple-600" />
-          <h3 className="text-lg font-semibold">Skills</h3>
+    <Card className="mb-1.5 bg-white border-0 rounded-2xl shadow-none">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+        <div className="flex items-center gap-2 min-w-0">
+          {grip}
+          <h3 className="text-base font-semibold">Skills</h3>
         </div>
         <div className="flex items-center space-x-1">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="text-gray-500 hover:text-gray-700"
+            data-collapse-trigger
           >
             {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onDelete} className="text-red-500 hover:text-red-700">
-            <Trash2 className="w-4 h-4" />
           </Button>
         </div>
       </CardHeader>
@@ -370,11 +374,13 @@ function SkillsSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (dat
 function ExperienceItem({ 
   experience, 
   onUpdate, 
-  onDelete 
+  onDelete,
+  grip,
 }: { 
   experience: any; 
   onUpdate: (exp: any) => void; 
   onDelete: () => void;
+  grip?: React.ReactNode;
 }) {
   const [isImproving, setIsImproving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -429,10 +435,13 @@ function ExperienceItem({
   };
 
   return (
-    <Card className="mb-6 bg-white border-0 rounded-2xl shadow-none">
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-start">
-          <h4 className="text-lg font-semibold">{experience.role || 'New Position'}</h4>
+    <Card className="mb-1.5 bg-white border-0 rounded-2xl shadow-none">
+      <CardHeader className="pb-1.5">
+        <div className="flex justify-between items-start gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {grip}
+            <h4 className="text-lg font-semibold">{experience.role || 'New Position'}</h4>
+          </div>
           <div className="flex items-center space-x-1">
             <Button 
               variant="ghost" 
@@ -535,7 +544,7 @@ function ExperienceItem({
 }
 
 // Custom Section Component
-function CustomSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (data: any) => void; onDelete: () => void }) {
+function CustomSection({ data, onUpdate, onDelete, grip }: { data: any; onUpdate: (data: any) => void; onDelete: () => void; grip?: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   
@@ -550,11 +559,11 @@ function CustomSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (dat
   // If this is a header section, render it differently
   if (data.isHeader) {
     return (
-      <div className="mb-6 mt-8 first:mt-0">
-        <div className="flex items-center space-x-3 border-b-2 border-gray-300 pb-2">
-          {data.title === 'Work Experience' && <Briefcase className="w-6 h-6 text-blue-600" />}
-          {data.title === 'Education' && <GraduationCap className="w-6 h-6 text-green-600" />}
-          <h2 className="text-2xl font-bold text-gray-900">{data.title}</h2>
+      <div className="mb-1.5 mt-2 first:mt-0">
+        <div className="flex items-center space-x-2 border-b-2 border-gray-300 pb-2">
+          {data.title === 'Work Experience' && <Briefcase className="w-4 h-4 text-blue-600" />}
+          {data.title === 'Education' && <GraduationCap className="w-4 h-4 text-green-600" />}
+          <h2 className="text-base font-semibold text-gray-900">{data.title}</h2>
         </div>
       </div>
     );
@@ -563,28 +572,31 @@ function CustomSection({ data, onUpdate, onDelete }: { data: any; onUpdate: (dat
 
 
   return (
-    <Card className="mb-6 bg-white border-0 rounded-2xl shadow-none">
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-start">
-          {isEditingTitle ? (
+    <Card className="mb-1.5 bg-white border-0 rounded-2xl shadow-none">
+      <CardHeader className="pb-1.5">
+        <div className="flex justify-between items-start gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {grip}
+            {isEditingTitle ? (
             <div className="flex items-center space-x-2 flex-1">
               <Input
                 value={data.title || 'New Section'}
                 onChange={(e) => updateField('title', e.target.value)}
                 onBlur={handleTitleSave}
                 onKeyPress={(e) => e.key === 'Enter' && handleTitleSave()}
-                className="text-lg font-semibold border-none p-0 h-auto focus:ring-0"
+                className="text-base font-semibold border-none p-0 h-auto focus:ring-0"
                 autoFocus
               />
             </div>
           ) : (
             <h4 
-              className="text-lg font-semibold cursor-pointer hover:text-blue-600"
+              className="text-base font-semibold cursor-pointer hover:text-blue-600"
               onClick={() => setIsEditingTitle(true)}
             >
               {data.title || 'New Section'}
             </h4>
           )}
+          </div>
           <div className="flex items-center space-x-1">
             <Button 
               variant="ghost" 
@@ -671,10 +683,9 @@ function ATSRatingSection({ resumeData, onDataChange }: { resumeData: any; onDat
   };
 
   return (
-    <Card className="mb-6 bg-white border-0 rounded-2xl shadow-none">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div className="flex items-center space-x-2">
-          <Target className="w-5 h-5 text-purple-600" />
+    <Card className="mb-1.5 bg-white border-0 rounded-2xl shadow-none">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+        <div className="flex items-center gap-2 min-w-0">
           <h3 className="text-lg font-semibold">ATS Compatibility Analysis</h3>
           <Badge variant="secondary" className="bg-purple-100 text-purple-700">
             Auto-Generated
@@ -770,11 +781,13 @@ function ATSRatingSection({ resumeData, onDataChange }: { resumeData: any; onDat
 function EducationItem({ 
   education, 
   onUpdate, 
-  onDelete 
+  onDelete,
+  grip,
 }: { 
   education: any; 
   onUpdate: (edu: any) => void; 
   onDelete: () => void;
+  grip?: React.ReactNode;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   
@@ -783,10 +796,13 @@ function EducationItem({
   };
 
   return (
-    <Card className="mb-6 bg-white border-0 rounded-2xl shadow-none">
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-start">
-          <h4 className="text-lg font-semibold">{education.degree || 'New Education'}</h4>
+    <Card className="mb-1.5 bg-white border-0 rounded-2xl shadow-none">
+      <CardHeader className="pb-1.5">
+        <div className="flex justify-between items-start gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {grip}
+            <h4 className="text-lg font-semibold">{education.degree || 'New Education'}</h4>
+          </div>
           <div className="flex items-center space-x-1">
             <Button 
               variant="ghost" 
@@ -974,7 +990,7 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
   }, [resumeData]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -1037,7 +1053,9 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
   };
 
   const deleteSection = (id: string) => {
-    const newSections = sections.filter(section => section.id !== id);
+    const section = sections.find(s => s.id === id);
+    if (section && ['contact', 'summary', 'skills'].includes(section.type)) return; // Core sections cannot be deleted
+    const newSections = sections.filter(s => s.id !== id);
     setSections(newSections);
     updateResumeData(newSections);
   };
@@ -1099,7 +1117,6 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
           <ContactSection
             data={section.data}
             onUpdate={readOnly ? () => {} : (data) => updateSection(section.id, data)}
-            onDelete={readOnly ? () => {} : () => deleteSection(section.id)}
           />
         );
       case 'summary':
@@ -1107,7 +1124,6 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
           <SummarySection
             data={section.data}
             onUpdate={readOnly ? () => {} : (data) => updateSection(section.id, data)}
-            onDelete={readOnly ? () => {} : () => deleteSection(section.id)}
           />
         );
       case 'skills':
@@ -1115,7 +1131,6 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
           <SkillsSection
             data={section.data}
             onUpdate={readOnly ? () => {} : (data) => updateSection(section.id, data)}
-            onDelete={readOnly ? () => {} : () => deleteSection(section.id)}
           />
         );
       case 'experience':
@@ -1148,8 +1163,8 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
   };
 
   return (
-    <div className={readOnly ? "p-4" : "bg-[hsl(220,33%,93%)] p-8"}>
-      <div className="max-w-4xl mx-auto">
+    <div className={readOnly ? "p-4" : "bg-[hsl(220,33%,93%)] p-2 pl-2"}>
+      <div className="max-w-4xl ml-0 mr-auto">
 
         {readOnly ? (
           // Read-only mode: no drag and drop
@@ -1237,7 +1252,7 @@ export default function DraggableResumeBuilder({ resumeData, onDataChange, onSav
 
         {/* Fixed ATS Rating Section - Only show if there's resume data */}
         {(resumeData?.ats_score || resumeData?.ats_recommendations) && (
-          <div className="mt-6">
+          <div className="mt-2">
             <ATSRatingSection
               resumeData={resumeData}
               onDataChange={onDataChange}

@@ -59,6 +59,20 @@ export function formatDate(dateStr: string | undefined): string {
   return `${date.getMonth() + 1}/${date.getFullYear()}`;
 }
 
+/** Print/PDF: avoid breaking sections across pages */
+export const RESUME_PRINT_PAGE_BREAK_CSS = `
+  @media print {
+    .resume-page .resume-header,
+    .resume-page .resume-section,
+    .resume-page .resume-exp-item,
+    .resume-page .resume-edu-item,
+    .resume-page .resume-sidebar-section {
+      page-break-inside: avoid;
+    }
+    @page { size: A4; margin: 0; }
+  }
+`;
+
 export const RESUME_CSS = `
   .resume-page *, .resume-page *::before, .resume-page *::after {
     margin: 0; padding: 0; box-sizing: border-box;

@@ -10,8 +10,11 @@ import '@/lib/clearLegacyData' // Clear legacy data on app load
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Interview Assistant',
-  description: 'AI-powered real-time interview assistant with live transcription and response suggestions',
+  title: 'Layline',
+  description: 'Set sail for your next job',
+  icons: {
+    icon: '/favicon.ico',
+  },
 }
 
 export default function RootLayout({

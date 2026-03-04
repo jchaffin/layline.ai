@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import puppeteer from "puppeteer";
-import { generateResumeHTMLString, type ResumeData } from "@/lib/resumeTemplate";
+import { generateResumeHTMLString, RESUME_PRINT_PAGE_BREAK_CSS, type ResumeData } from "@/lib/resumeTemplate";
 import { getTemplateCSS } from "@/lib/resumeTemplates";
 
 export async function POST(req: NextRequest) {
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     const htmlBase = generateResumeHTMLString(resumeData);
     const html = htmlBase.replace(
       /<style>[\s\S]*?<\/style>/,
-      `<style>${css} .resume-page { width: 8.5in; }</style>`
+      `<style>${css} ${RESUME_PRINT_PAGE_BREAK_CSS} .resume-page { width: 8.5in; }</style>`
     );
 
     await page.setContent(html, { waitUntil: 'domcontentloaded' });

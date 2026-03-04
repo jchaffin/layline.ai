@@ -350,21 +350,22 @@ function FileCard({
       onClick={onOpen}
     >
       {/* Thumbnail */}
-      <div className="aspect-[4/3] bg-muted flex items-center justify-center relative">
-        <div className="flex flex-col items-center gap-1.5">
-          <FileText
-            className={`w-10 h-10 ${isOriginal ? "text-blue-500" : "text-emerald-500"}`}
-          />
-          <span
-            className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-              isOriginal
-                ? "bg-blue-100 text-blue-700"
-                : "bg-emerald-100 text-emerald-700"
-            }`}
-          >
-            {isOriginal ? "Original" : "Tailored"}
-          </span>
-        </div>
+      <div className="aspect-[4/3] bg-muted relative overflow-hidden">
+        <iframe
+          src={`/api/documents/download?key=${encodeURIComponent(file.key)}#toolbar=0&navpanes=0&scrollbar=0`}
+          className="absolute inset-0 w-full h-full pointer-events-none border-0 scale-100"
+          title={file.name}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+        <span
+          className={`absolute bottom-2 left-2 text-[10px] font-medium px-2 py-0.5 rounded-full ${
+            isOriginal
+              ? "bg-blue-100 text-blue-700"
+              : "bg-emerald-100 text-emerald-700"
+          }`}
+        >
+          {isOriginal ? "Original" : "Tailored"}
+        </span>
 
         {/* Hover actions */}
         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">

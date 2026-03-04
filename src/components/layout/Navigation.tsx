@@ -7,6 +7,7 @@ import {
   Briefcase,
   BarChart3,
   Mic,
+  Code2,
   ChevronLeft,
   ChevronRight,
   CheckCircle,
@@ -37,6 +38,7 @@ const NAV_ITEMS: {
   { id: "jobs", label: "Jobs", icon: Briefcase },
   { id: "insights", label: "Analysis", icon: BarChart3, requiresResume: true },
   { id: "interview", label: "Interview", icon: Mic },
+  { id: "problems", label: "Problems", icon: Code2 },
 ];
 
 export function Navigation({
@@ -111,9 +113,9 @@ export function Navigation({
         </div>
       </aside>
 
-      {/* Mobile top bar */}
+      {/* Mobile: vertical list */}
       <div className="lg:hidden sticky top-0 z-10 border-b bg-background/80 backdrop-blur-md">
-        <div className="flex items-center gap-1 px-3 py-2 overflow-x-auto">
+        <nav className="flex flex-col py-2 px-2">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = item.id === currentStep;
@@ -124,15 +126,15 @@ export function Navigation({
                 key={item.id}
                 variant={active ? "secondary" : "ghost"}
                 size="sm"
-                className={`shrink-0 gap-1.5 ${disabled ? "opacity-40 pointer-events-none" : ""}`}
+                className={`w-full justify-start gap-2 h-10 ${disabled ? "opacity-40 pointer-events-none" : ""}`}
                 onClick={() => !disabled && onStepChange(item.id)}
               >
-                <Icon className="w-3.5 h-3.5" />
-                <span className="text-xs">{item.label}</span>
+                <Icon className="w-4 h-4 shrink-0" />
+                <span className="text-sm">{item.label}</span>
               </Button>
             );
           })}
-        </div>
+        </nav>
       </div>
     </>
   );

@@ -46,6 +46,59 @@ export default function JobManager({ resumeData }: { resumeData?: ParsedResume |
   useEffect(() => { loadApplications(); }, [loadApplications]);
 
   const addJobToTracker = async (job: Job) => {
+    let description = job.description || undefined;
+    let analysis = job.analysis ?? undefined;
+
+    // If we have a big blob of text but no structured analysis, run it through the analyze API to get qualifications, skills, responsibilities, etc.
+    const hasStructuredAnalysis =
+      analysis &&
+      ( (analysis.requiredSkills?.length ?? 0) > 0 ||
+        (analysis.qualifications?.length ?? 0) > 0 ||
+        (analysis.responsibilities?.length ?? 0) > 0 );
+    const blob =
+      (job.description || "").trim() ||
+      [
+        ...(job.job_highlights?.Qualifications ?? []),
+        ...(job.job_highlights?.Responsibilities ?? []),
+      ].join("\n\n");
+
+    if (!hasStructuredAnalysis && blob.length >= 150) {
+      try {
+        const analyzeRes = await fetch("/api/jobs/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ description: blob }),
+        });
+        if (analyzeRes.ok) {
+          const data = await analyzeRes.json();
+          if (data.analysis) {
+            analysis = data.analysis;
+            if (data.job?.description) description = data.job.description;
+          }
+        }
+      } catch {
+        // Fall through to fallback below
+      }
+    }
+
+    // Fallback: build minimal structure from job_highlights + tags when no analysis
+    if (!analysis) {
+      const quals = job.job_highlights?.Qualifications ?? [];
+      const responsibilities = job.job_highlights?.Responsibilities ?? [];
+      const skills = job.tags && job.tags.length > 0 ? job.tags : undefined;
+      if (quals.length > 0 || responsibilities.length > 0 || skills?.length) {
+        analysis = {
+          qualifications: quals.length > 0 ? quals : undefined,
+          responsibilities: responsibilities.length > 0 ? responsibilities : undefined,
+          requiredSkills: skills,
+        };
+      }
+    }
+    // Always preserve employer logo from the listing (e.g. LinkedIn) when adding to tracker
+    if (job.employer_logo) {
+      analysis = { ...(analysis ?? {}), companyLogoUrl: job.employer_logo };
+    }
+
     const newApp: Application = {
       id: `temp-${Date.now()}`,
       jobTitle: job.title,
@@ -56,6 +109,8 @@ export default function JobManager({ resumeData }: { resumeData?: ParsedResume |
       jobUrl: job.url,
       notes: job.matchScore ? `Match score: ${job.matchScore}%` : undefined,
       salary: job.salary ?? undefined,
+      description,
+      analysis: analysis ?? undefined,
     };
 
     setApplications((prev) => [newApp, ...prev]);
@@ -73,6 +128,8 @@ export default function JobManager({ resumeData }: { resumeData?: ParsedResume |
           notes: newApp.notes,
           location: job.location,
           salaryRange: job.salary,
+          description,
+          analysis: analysis ?? undefined,
         }),
       });
       const saved = await res.json();
@@ -88,12 +145,12 @@ export default function JobManager({ resumeData }: { resumeData?: ParsedResume |
     setApplications(updated);
   };
 
-  const handleJDSave = async (id: string, data: { jobTitle: string; company: string; location: string; description?: string; analysis: any }) => {
+  const handleJDSave = async (id: string, data: { jobTitle: string; company: string; location: string; description?: string; analysis: any; jobUrl?: string }) => {
     setApplications((prev) =>
-      prev.map((a) => a.id === id ? { ...a, jobTitle: data.jobTitle, company: data.company, location: data.location, description: data.description, analysis: data.analysis } : a),
+      prev.map((a) => a.id === id ? { ...a, jobTitle: data.jobTitle, company: data.company, location: data.location, description: data.description, analysis: data.analysis, jobUrl: data.jobUrl ?? a.jobUrl } : a),
     );
     if (editingApp) {
-      setEditingApp((prev) => prev ? { ...prev, jobTitle: data.jobTitle, company: data.company, location: data.location, description: data.description, analysis: data.analysis } : prev);
+      setEditingApp((prev) => prev ? { ...prev, jobTitle: data.jobTitle, company: data.company, location: data.location, description: data.description, analysis: data.analysis, jobUrl: data.jobUrl ?? prev.jobUrl } : prev);
     }
     fetch(`/api/jobs/applications/${id}`, {
       method: "PATCH",
@@ -102,6 +159,7 @@ export default function JobManager({ resumeData }: { resumeData?: ParsedResume |
         notes: undefined,
         description: data.description,
         analysis: data.analysis,
+        ...(data.jobUrl !== undefined && { jobUrl: data.jobUrl }),
       }),
     }).catch(() => {});
   };

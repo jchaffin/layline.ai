@@ -191,12 +191,30 @@ model JobListing {
   @@map("job_listings")
 }
 
+model CodingProblem {
+  id          String    @id @default(dbgenerated("gen_random_uuid()"))
+  title       String
+  slug        String    @unique
+  description String    @db.Text
+  difficulty  String    @default("medium")
+  tags        String[]  @default([])
+  testCases   Json      @map("test_cases")
+  starterCode Json      @map("starter_code")
+  hints       String[]  @default([])
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([difficulty])
+  @@index([tags])
+  @@map("coding_problems")
+}
+
 model JobApplication {
   id          String    @id @default(dbgenerated("gen_random_uuid()"))
   userId      String?   @map("user_id")
   jobTitle    String    @map("job_title")
   company     String
-  jobUrl      String    @map("job_url")
+  jobUrl      String    @map("job_url") @db.Text
   status      String    @default("applied")
   appliedDate DateTime? @map("applied_date") @default(now())
   lastUpdated DateTime? @map("last_updated") @default(now())

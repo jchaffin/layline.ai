@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Navigation, type NavigationStep } from "@/components/layout/Navigation";
@@ -24,6 +25,7 @@ import type {
 } from "@/lib/schema";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState<NavigationStep>("dashboard");
   const [resumeData, setResumeData] = useState<ParsedResume | null>(null);
   const [jobData, setJobData] = useState<JobAnalysisType | null>(null);
@@ -156,13 +158,22 @@ export default function DashboardPage() {
   };
 
   const isEditingDocument = documentsView === "edit" && !!selectedDocument;
+  const sidebarVisible = !isEditingDocument || sidebarVisibleInEditor;
 
   return (
     <div className="min-h-screen bg-background">
-      {(!isEditingDocument || sidebarVisibleInEditor) && (
+      {sidebarVisible && (
         <Navigation
           currentStep={currentStep}
           onStepChange={(step) => {
+            if (step === "interview") {
+              window.location.href = "/interview";
+              return;
+            }
+            if (step === "problems") {
+              router.push("/problems");
+              return;
+            }
             setCurrentStep(step);
             if (isEditingDocument) {
               setDocumentsView("grid");
@@ -179,9 +190,7 @@ export default function DashboardPage() {
         />
       )}
       <main
-        className={`transition-all duration-200 ${
-          isEditingDocument ? "" : isNavCollapsed ? "lg:ml-16" : "lg:ml-56"
-        } p-6`}
+        className={`${sidebarVisible ? (isNavCollapsed ? "lg:ml-16" : "lg:ml-56") : ""} p-6 transition-[margin-left] duration-200`}
       >
         {renderStep()}
       </main>

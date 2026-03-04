@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { TranscriptProvider, EventProvider } from "@jchaffin/voicekit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -16,10 +17,17 @@ import {
   User,
   Lightbulb,
   RotateCcw,
+  RefreshCw,
+  X,
 } from "lucide-react";
 import { useInterviewSession } from "@/hooks/useInterviewSession";
-import type { InterviewSetupData, FeedbackItem } from "@/types/interview";
+import type { InterviewSetupData, CoachSuggestion } from "@/types/interview";
 import type { TranscriptItem } from "@jchaffin/voicekit";
+import type { CodePanelRef } from "@/components/interview/CodePanel";
+
+const CodePanel = dynamic(() => import("@/components/interview/CodePanel"), {
+  ssr: false,
+});
 
 function LiveSession() {
   const router = useRouter();
@@ -28,7 +36,6 @@ function LiveSession() {
     isConnected,
     isResearching,
     transcriptItems,
-    feedbackItems,
     coachSuggestions,
     coachWarnings,
     interviewEnded,
@@ -38,29 +45,60 @@ function LiveSession() {
     sendMessage,
     toggleMute,
     coachStatus,
+    regenerateCoach,
+    setCodingProblemActive,
   } = useInterviewSession();
 
   const [isMuted, setIsMuted] = useState(false);
   const [textInput, setTextInput] = useState("");
-  const [started, setStarted] = useState(false);
+  const [dismissedTimestamps, setDismissedTimestamps] = useState<Set<number>>(
+    () => new Set(),
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [activeProblem, setActiveProblem] = useState<any | null>(null);
+  const codePanelRef = useRef<CodePanelRef>(null);
+  const startedRef = useRef(false);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onProblem = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.problem) {
+        setActiveProblem(detail.problem);
+        setCodingProblemActive?.(true);
+      }
+    };
+    const onGetCode = () => {
+      const code = codePanelRef.current?.getCode() ?? "";
+      const language = codePanelRef.current?.getLanguage() ?? "python";
+      window.dispatchEvent(
+        new CustomEvent("interview:code-response", { detail: { code, language } }),
+      );
+    };
+    window.addEventListener("interview:problem", onProblem);
+    window.addEventListener("interview:get-code", onGetCode);
+    return () => {
+      window.removeEventListener("interview:problem", onProblem);
+      window.removeEventListener("interview:get-code", onGetCode);
+    };
+  }, [setCodingProblemActive]);
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcriptItems]);
 
   useEffect(() => {
-    if (started) return;
+    if (startedRef.current) return;
     const raw = localStorage.getItem("interviewSetupData");
     if (!raw) {
       router.replace("/interview");
       return;
     }
-    setStarted(true);
+    startedRef.current = true;
     const data: InterviewSetupData = JSON.parse(raw);
     localStorage.removeItem("interviewSetupData");
     startInterview(data);
-  }, [started, router, startInterview]);
+  }, [router, startInterview]);
 
   const handleEnd = () => {
     endInterview();
@@ -83,11 +121,15 @@ function LiveSession() {
     setTextInput("");
   };
 
+  const handleDismissSuggestion = useCallback((ts: number) => {
+    setDismissedTimestamps((prev) => new Set(prev).add(ts));
+  }, []);
+
   if (interviewEnded) {
     return (
       <ReviewScreen
-        feedbackItems={feedbackItems}
         transcriptItems={transcriptItems}
+        coachSuggestions={coachSuggestions}
         setupData={setupData}
         onRestart={handleRestart}
       />
@@ -96,6 +138,10 @@ function LiveSession() {
 
   const visibleItems = transcriptItems.filter(
     (item) => !item.isHidden && item.type === "MESSAGE",
+  );
+
+  const activeSuggestion = coachSuggestions.find(
+    (s) => !dismissedTimestamps.has(s.timestamp),
   );
 
   return (
@@ -119,8 +165,8 @@ function LiveSession() {
         </div>
       </div>
 
-      <div className="flex-1 flex max-w-5xl mx-auto w-full">
-        <div className="flex-1 flex flex-col">
+      <div className={`flex-1 flex ${activeProblem ? "max-w-[1600px]" : "max-w-5xl"} mx-auto w-full`}>
+        <div className={`${activeProblem ? "w-80" : "flex-1"} flex flex-col shrink-0`}>
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
             {visibleItems.length === 0 && (
               <div className="flex items-center justify-center h-full">
@@ -180,7 +226,13 @@ function LiveSession() {
           </div>
         </div>
 
-        <div className="w-96 border-l overflow-y-auto p-4 space-y-4">
+        {activeProblem && (
+          <div className="flex-1 min-w-0">
+            <CodePanel ref={codePanelRef} problem={activeProblem} />
+          </div>
+        )}
+
+        <div className={`${activeProblem ? "w-72" : "w-96"} border-l overflow-y-auto p-4 space-y-4 shrink-0`}>
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <Lightbulb className="w-4 h-4 text-yellow-500" />
@@ -209,23 +261,19 @@ function LiveSession() {
 
           {setupData && <ContextPanel setupData={setupData} />}
 
-          <div className="space-y-3">
-            {coachSuggestions.map((s, i) => (
-              <div
-                key={s.timestamp}
-                className={`p-3 rounded-lg text-sm leading-relaxed border ${
-                  i === 0
-                    ? "bg-primary/5 border-primary/20 text-foreground"
-                    : "bg-muted/50 border-border text-muted-foreground"
-                }`}
-              >
-                {s.response}
-                {s.streaming && (
-                  <span className="inline-block w-1.5 h-4 bg-current ml-0.5 animate-pulse rounded-sm" />
-                )}
-              </div>
-            ))}
-          </div>
+          {activeSuggestion ? (
+            <SuggestionCard
+              suggestion={activeSuggestion}
+              onDismiss={() => handleDismissSuggestion(activeSuggestion.timestamp)}
+              onRegenerate={regenerateCoach}
+            />
+          ) : (
+            coachStatus === "listening" && coachSuggestions.length > 0 && (
+              <p className="text-xs text-muted-foreground text-center py-2">
+                Suggestion dismissed. Waiting for next question...
+              </p>
+            )
+          )}
 
           {coachWarnings.length > 0 && (
             <div className="space-y-2">
@@ -240,16 +288,51 @@ function LiveSession() {
             </div>
           )}
 
-          {feedbackItems.length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold text-muted-foreground mb-2">Feedback</h4>
-              {feedbackItems.map((fb, i) => (
-                <FeedbackCard key={i} feedback={fb} index={i} />
-              ))}
-            </div>
-          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SuggestionCard({
+  suggestion,
+  onDismiss,
+  onRegenerate,
+}: {
+  suggestion: CoachSuggestion;
+  onDismiss: () => void;
+  onRegenerate: () => void;
+}) {
+  return (
+    <div className="rounded-lg border bg-primary/5 border-primary/20">
+      <div className="p-3 text-sm leading-relaxed text-foreground">
+        {suggestion.response}
+        {suggestion.streaming && (
+          <span className="inline-block w-1.5 h-4 bg-current ml-0.5 animate-pulse rounded-sm" />
+        )}
+      </div>
+      {!suggestion.streaming && suggestion.response && (
+        <div className="flex items-center gap-1 px-2 pb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-muted-foreground"
+            onClick={onRegenerate}
+          >
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Regenerate
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-muted-foreground"
+            onClick={onDismiss}
+          >
+            <X className="w-3 h-3 mr-1" />
+            Dismiss
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -395,60 +478,19 @@ function TranscriptBubble({ item }: { item: TranscriptItem }) {
   );
 }
 
-function FeedbackCard({ feedback, index }: { feedback: FeedbackItem; index: number }) {
-  const ratingColors: Record<string, string> = {
-    strong: "text-green-600 bg-green-50 border-green-200",
-    adequate: "text-yellow-600 bg-yellow-50 border-yellow-200",
-    needs_improvement: "text-red-600 bg-red-50 border-red-200",
-  };
-  const colors = ratingColors[feedback.rating] || ratingColors.adequate;
-
-  return (
-    <Card className={`border ${colors.split(" ").slice(1).join(" ")}`}>
-      <CardContent className="p-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium">Q{index + 1} Feedback</span>
-          <Badge variant="outline" className={`text-[10px] capitalize ${colors.split(" ")[0]}`}>
-            {feedback.rating.replace("_", " ")}
-          </Badge>
-        </div>
-        {feedback.strengths && (
-          <div>
-            <span className="text-[10px] font-medium text-green-700">Strengths</span>
-            <p className="text-xs text-muted-foreground">{feedback.strengths}</p>
-          </div>
-        )}
-        {feedback.improvements && (
-          <div>
-            <span className="text-[10px] font-medium text-amber-700">Improve</span>
-            <p className="text-xs text-muted-foreground">{feedback.improvements}</p>
-          </div>
-        )}
-        {feedback.tip && (
-          <div className="flex items-start gap-1.5 pt-1 border-t">
-            <Lightbulb className="w-3 h-3 text-yellow-500 mt-0.5 shrink-0" />
-            <p className="text-xs text-muted-foreground">{feedback.tip}</p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 function ReviewScreen({
-  feedbackItems,
   transcriptItems,
+  coachSuggestions,
   setupData,
   onRestart,
 }: {
-  feedbackItems: FeedbackItem[];
   transcriptItems: TranscriptItem[];
+  coachSuggestions: CoachSuggestion[];
   setupData: InterviewSetupData | null;
   onRestart: () => void;
 }) {
   const visibleMessages = transcriptItems.filter((i) => !i.isHidden && i.type === "MESSAGE");
-  const strongCount = feedbackItems.filter((f) => f.rating === "strong").length;
-  const totalQuestions = feedbackItems.length;
+  const completedSuggestions = coachSuggestions.filter((s) => !s.streaming && s.response);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -466,29 +508,6 @@ function ReviewScreen({
             Practice Again
           </Button>
         </div>
-
-        {totalQuestions > 0 && (
-          <Card>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-3 gap-6 text-center">
-                <div>
-                  <div className="text-3xl font-bold">{totalQuestions}</div>
-                  <div className="text-sm text-muted-foreground">Questions Asked</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-green-600">{strongCount}</div>
-                  <div className="text-sm text-muted-foreground">Strong Answers</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold">
-                    {totalQuestions > 0 ? Math.round((strongCount / totalQuestions) * 100) : 0}%
-                  </div>
-                  <div className="text-sm text-muted-foreground">Score</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
@@ -522,20 +541,31 @@ function ReviewScreen({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Feedback</CardTitle>
-            </CardHeader>
-            <CardContent className="max-h-[500px] overflow-y-auto space-y-3">
-              {feedbackItems.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No structured feedback was provided during this session.
-                </p>
-              ) : (
-                feedbackItems.map((fb, i) => <FeedbackCard key={i} feedback={fb} index={i} />)
-              )}
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            {completedSuggestions.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Lightbulb className="w-4 h-4 text-yellow-500" />
+                    Coach Suggestions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="max-h-[400px] overflow-y-auto space-y-3">
+                  {completedSuggestions.map((s, i) => (
+                    <div
+                      key={s.timestamp}
+                      className="p-3 rounded-lg bg-muted/50 border border-border text-sm text-muted-foreground"
+                    >
+                      <span className="text-[10px] font-medium text-foreground block mb-1">
+                        Suggestion {completedSuggestions.length - i}
+                      </span>
+                      {s.response}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       </div>
     </div>

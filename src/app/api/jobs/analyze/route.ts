@@ -3,7 +3,8 @@ import { openai } from "@/lib/api/openai";
 import pdfParse from "@jchaffin/pdf-parse";
 import { computeMatchScore } from "@/lib/resumeJobMatch";
 import type { ParsedResume } from "@/lib/schema";
-import { cleanText, fetchViaScrapeless } from "@/lib/jobScraper";
+import { cleanText, fetchViaScrapeless, htmlToStructuredText, extractLinkedInJobDetail } from "@/lib/jobScraper";
+import { normalizeJobAnalysis } from "@/lib/analysisUtils";
 
 async function fetchUrlHtml(url: string): Promise<string | null> {
   let fetchUrl = url;
@@ -61,24 +62,13 @@ async function fetchDescriptionFromUrl(url: string): Promise<string | null> {
   if (!htmlContent) return null;
 
   if (url.includes("linkedin.com")) {
-    const descMatch = htmlContent.match(
-      /class="show-more-less-html__markup[^"]*"[^>]*>([\s\S]*?)<\/div>/,
-    );
-    if (descMatch) {
-      const linkedInDescription = cleanText(descMatch[1]);
-      if (linkedInDescription.length > 20) return linkedInDescription;
-    }
+    const detail = extractLinkedInJobDetail(htmlContent);
+    if (detail.description && detail.description.length > 20) return detail.description;
   }
 
-  const textContent = htmlContent
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
+  const textContent = htmlToStructuredText(htmlContent);
   if (textContent.length < 100) return null;
-  return cleanText(textContent);
+  return textContent;
 }
 
 async function extractLocationFromUrl(url: string): Promise<string> {
@@ -150,16 +140,34 @@ export async function POST(request: NextRequest) {
     }
 
     let jobDescriptionText = description || jobDescription;
+    let employerLogoFromUrl: string | null = null;
 
-    if (url && !jobDescriptionText) {
+    if (url) {
       try {
-        jobDescriptionText = await fetchDescriptionFromUrl(url) || undefined;
+        const htmlContent = await fetchUrlHtml(url);
+        console.log(`[analyze] URL: ${url}, HTML fetched: ${htmlContent ? htmlContent.length + ' chars' : 'null'}`);
+        if (htmlContent) {
+          if (url.includes("linkedin.com")) {
+            const detail = extractLinkedInJobDetail(htmlContent);
+            if (!jobDescriptionText) jobDescriptionText = detail.description || undefined;
+            if (detail.employer_logo) employerLogoFromUrl = detail.employer_logo;
+            console.log(`[analyze] LinkedIn logo extracted: ${employerLogoFromUrl || 'null'}`);
+          } else {
+            if (!jobDescriptionText) {
+              jobDescriptionText = htmlToStructuredText(htmlContent);
+              if (jobDescriptionText.length < 100) jobDescriptionText = undefined;
+            }
+          }
+        }
         if (!jobDescriptionText) throw new Error("Insufficient content extracted");
-      } catch {
-        return NextResponse.json(
-          { error: "Could not fetch job description from URL." },
-          { status: 400 },
-        );
+      } catch (e) {
+        console.error(`[analyze] Fetch error:`, e);
+        if (!jobDescriptionText) {
+          return NextResponse.json(
+            { error: "Could not fetch job description from URL." },
+            { status: 400 },
+          );
+        }
       }
     }
 
@@ -203,6 +211,10 @@ export async function POST(request: NextRequest) {
   "sentiment": 0.8
 }
 
+CRITICAL - Skills extraction:
+- "requiredSkills" and "preferredSkills" must list actual job skills: technologies (e.g. Python, React, AWS), tools, frameworks, methodologies, languages, certifications, domain knowledge. Extract every skill, technology, and requirement mentioned (must-have in requiredSkills, nice-to-have in preferredSkills).
+- Do NOT put job title, role name, or seniority in skills. Do NOT use "Senior", "Engineer", "Entry", "Mid", "Executive", or the job title as skill items. Those belong only in "role" and "experienceLevel".
+
 For "interviewProcess", extract the EXACT interview steps mentioned in the job description using their actual names and durations. If no interview process is described, return an empty array.`,
         },
         {
@@ -213,9 +225,11 @@ For "interviewProcess", extract the EXACT interview steps mentioned in the job d
       response_format: { type: "json_object" },
     });
 
-    const analysis = JSON.parse(
+    const rawAnalysis = JSON.parse(
       completion.choices[0].message.content || "{}"
     );
+    if (employerLogoFromUrl) rawAnalysis.companyLogoUrl = employerLogoFromUrl;
+    const analysis = normalizeJobAnalysis(rawAnalysis);
 
     const aiLocation = typeof analysis.location === "string" ? analysis.location.trim() : "";
     const locationNormalized = aiLocation.toLowerCase();
@@ -270,6 +284,7 @@ For "interviewProcess", extract the EXACT interview steps mentioned in the job d
       job_is_remote: (analysis.workType || "").toLowerCase().includes("remote"),
       source: "Uploaded",
       tags: allSkills.length > 0 ? allSkills : (analysis.keywords || []),
+      employer_logo: employerLogoFromUrl || null,
       job_highlights: {
         Qualifications: analysis.qualifications || [],
         Responsibilities: analysis.responsibilities || [],

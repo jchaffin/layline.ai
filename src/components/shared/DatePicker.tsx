@@ -127,3 +127,41 @@ export function DateRangePicker({
     </Popover>
   )
 }
+
+interface DateTimePickerProps {
+  date?: Date | null
+  onDateChange?: (date: Date | undefined) => void
+  placeholder?: string
+  disabled?: boolean
+  className?: string
+  minDate?: Date
+}
+
+/** Picker for date + time (e.g. interview scheduling). Uses calendar + time dropdown. */
+export function DateTimePicker({
+  date,
+  onDateChange,
+  placeholder = "Pick date and time",
+  disabled = false,
+  className,
+  minDate,
+}: DateTimePickerProps) {
+  return (
+    <div className={cn("relative", className)}>
+      <ReactDatePicker
+        selected={date ?? undefined}
+        onChange={(selected: Date | null) => onDateChange?.(selected ?? undefined)}
+        showTimeSelect
+        timeIntervals={15}
+        timeCaption="Time"
+        dateFormat="MMM d, yyyy h:mm aa"
+        placeholderText={placeholder}
+        disabled={disabled}
+        minDate={minDate}
+        className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring disabled:bg-muted disabled:cursor-not-allowed"
+        wrapperClassName="w-full"
+        popperClassName="z-50"
+      />
+    </div>
+  )
+}

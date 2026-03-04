@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -18,7 +18,17 @@ import {
   FileText,
   Play,
   Check,
+  Link2,
+  Loader2,
+  ExternalLink,
+  Calendar,
+  Download,
 } from "lucide-react";
+import { CompanyLogo } from "@/components/jobs/CompanyLogo";
+import { cn } from "@/lib/utils";
+
+const LOGO_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml";
+const LOGO_MAX_BYTES = 500 * 1024; // 500KB
 
 
 interface JDEditViewProps {
@@ -30,9 +40,10 @@ interface JDEditViewProps {
     jobUrl?: string;
     description?: string;
     analysis?: Analysis;
+    appliedDate?: Date | string;
   };
   onBack: () => void;
-  onSave: (id: string, data: { jobTitle: string; company: string; location: string; description?: string; analysis: Analysis }) => void;
+  onSave: (id: string, data: { jobTitle: string; company: string; location: string; description?: string; analysis: Analysis; jobUrl?: string }) => void;
   onPracticeInterview: (context: { companyName: string; roleTitle: string; jobDescription: string }) => void;
 }
 
@@ -49,6 +60,12 @@ export default function JDEditView({ application, onBack, onSave, onPracticeInte
   const [newPrefSkill, setNewPrefSkill] = useState("");
   const [newQual, setNewQual] = useState("");
   const [newResp, setNewResp] = useState("");
+  const [logoDropActive, setLogoDropActive] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [jobUrl, setJobUrl] = useState(application.jobUrl || "");
+  const [pullingUrl, setPullingUrl] = useState(false);
+  const [pullError, setPullError] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const update = useCallback(<K extends keyof Analysis>(key: K, value: Analysis[K]) => {
     setAnalysis((prev) => ({ ...prev, [key]: value }));
@@ -77,9 +94,117 @@ export default function JDEditView({ application, onBack, onSave, onPracticeInte
       location: analysis.location || application.location,
       description,
       analysis,
+      jobUrl: jobUrl.trim() || undefined,
     });
     setDirty(false);
   };
+
+  const handlePullFromUrl = async () => {
+    const url = jobUrl.trim();
+    if (!url) {
+      setPullError("Enter a job posting URL");
+      return;
+    }
+    setPullError(null);
+    setPullingUrl(true);
+    try {
+      const [analyzeRes, logoRes] = await Promise.all([
+        fetch("/api/jobs/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        }),
+        fetch("/api/jobs/logo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        }).catch(() => null),
+      ]);
+      if (!analyzeRes.ok) {
+        const data = await analyzeRes.json().catch(() => ({}));
+        throw new Error(data.error || "Could not fetch job data");
+      }
+      const data = await analyzeRes.json();
+      const logoData = logoRes ? await logoRes.json().catch(() => ({})) : {};
+      const fetched = data.analysis || {};
+      const job = data.job || {};
+      const logoUrl = logoData.logo ?? fetched.companyLogoUrl ?? job.employer_logo ?? null;
+      setAnalysis((prev) => ({
+        ...prev,
+        ...(logoUrl ? { companyLogoUrl: logoUrl } : {}),
+        ...(prev.company || !fetched.company ? {} : { company: fetched.company }),
+        ...(prev.role || !fetched.role ? {} : { role: fetched.role }),
+        ...(prev.location || !fetched.location ? {} : { location: fetched.location }),
+        ...(prev.experience || !fetched.experience ? {} : { experience: fetched.experience }),
+        ...(prev.experienceLevel || !fetched.experienceLevel ? {} : { experienceLevel: fetched.experienceLevel }),
+        ...(prev.workType || !fetched.workType ? {} : { workType: fetched.workType }),
+        ...(prev.companyInfo || !fetched.companyInfo ? {} : { companyInfo: fetched.companyInfo }),
+        ...((prev.requiredSkills?.length ?? 0) > 0 || !fetched.requiredSkills?.length ? {} : { requiredSkills: fetched.requiredSkills }),
+        ...((prev.preferredSkills?.length ?? 0) > 0 || !fetched.preferredSkills?.length ? {} : { preferredSkills: fetched.preferredSkills }),
+        ...((prev.qualifications?.length ?? 0) > 0 || !fetched.qualifications?.length ? {} : { qualifications: fetched.qualifications }),
+        ...((prev.responsibilities?.length ?? 0) > 0 || !fetched.responsibilities?.length ? {} : { responsibilities: fetched.responsibilities }),
+      }));
+      if (!description && (job.description || data.description)) {
+        setDescription(job.description || data.description || "");
+      }
+      setDirty(true);
+    } catch (err) {
+      setPullError(err instanceof Error ? err.message : "Failed to pull data");
+    } finally {
+      setPullingUrl(false);
+    }
+  };
+
+  const readLogoAsDataUrl = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (!file.type.startsWith("image/")) {
+        reject(new Error("Please use an image file (PNG, JPEG, WebP, or SVG)."));
+        return;
+      }
+      if (file.size > LOGO_MAX_BYTES) {
+        reject(new Error(`Image must be under ${LOGO_MAX_BYTES / 1024}KB.`));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error("Could not read file."));
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  const handleLogoFile = useCallback(
+    async (file: File | null) => {
+      setLogoError(null);
+      if (!file) return;
+      try {
+        const dataUrl = await readLogoAsDataUrl(file);
+        update("companyLogoUrl", dataUrl);
+      } catch (err) {
+        setLogoError(err instanceof Error ? err.message : "Invalid image");
+      }
+    },
+    [readLogoAsDataUrl, update],
+  );
+
+  const onLogoDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setLogoDropActive(false);
+      const file = e.dataTransfer.files?.[0];
+      if (file) handleLogoFile(file);
+    },
+    [handleLogoFile],
+  );
+
+  const onLogoDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setLogoDropActive(true);
+  }, []);
+
+  const onLogoDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setLogoDropActive(false);
+  }, []);
 
   const handlePracticeInterview = (stepName?: string) => {
     const jdParts = [
@@ -121,19 +246,108 @@ export default function JDEditView({ application, onBack, onSave, onPracticeInte
 
       {/* Role & Company */}
       <div className="bg-white rounded-xl border p-5 space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Role</label>
-            <div className="relative">
-              <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                value={analysis.role || ""}
-                onChange={(e) => update("role", e.target.value)}
-                className="pl-10"
-                placeholder="Job title"
+        <div className="pb-4 border-b border-gray-100">
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept={LOGO_ACCEPT}
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleLogoFile(file);
+              e.target.value = "";
+            }}
+          />
+          <div className="flex items-center gap-4">
+            {/* Logo */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => logoInputRef.current?.click()}
+              onDrop={onLogoDrop}
+              onDragOver={onLogoDragOver}
+              onDragLeave={onLogoDragLeave}
+              onKeyDown={(e) => e.key === "Enter" && logoInputRef.current?.click()}
+              title="Drop image or click to set logo"
+              className={cn(
+                "relative w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden transition-all cursor-pointer border border-gray-200 flex-shrink-0 hover:border-gray-300",
+                logoDropActive && "ring-2 ring-primary bg-primary/10",
+              )}
+            >
+              <CompanyLogo
+                src={analysis.companyLogoUrl}
+                url={jobUrl || application.jobUrl}
+                companyName={analysis.company || application.company}
+                size="md"
               />
+              {logoDropActive && (
+                <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-primary/20 text-xs font-medium text-primary">
+                  Drop
+                </span>
+              )}
+            </div>
+
+            {/* Company + role summary */}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-bold text-gray-900 truncate">{analysis.role || application.jobTitle}</h2>
+              <p className="text-sm text-gray-600 truncate">{analysis.company || application.company}{analysis.location ? ` · ${analysis.location}` : ""}</p>
+            </div>
+
+            {/* Action icons */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                type="button"
+                className={cn(
+                  "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                  jobUrl ? "text-blue-600 bg-blue-50 hover:bg-blue-100" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100",
+                )}
+                onClick={() => {
+                  const url = prompt("Job posting URL", jobUrl);
+                  if (url !== null) {
+                    setJobUrl(url);
+                    setPullError(null);
+                    if (url.trim()) setDirty(true);
+                  }
+                }}
+                title={jobUrl ? `Edit URL` : "Set job URL"}
+              >
+                <Link2 className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors text-gray-400 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-30 disabled:pointer-events-none"
+                onClick={handlePullFromUrl}
+                disabled={pullingUrl || !jobUrl.trim()}
+                title="Pull missing data"
+              >
+                {pullingUrl ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              </button>
+              {jobUrl && (
+                <button
+                  type="button"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                  onClick={() => window.open(jobUrl, "_blank")}
+                  title="Open posting"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </button>
+              )}
+              <span
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400"
+                title={`Applied: ${application.appliedDate ? new Date(application.appliedDate).toLocaleDateString() : "Unknown"}`}
+              >
+                <Calendar className="w-4 h-4" />
+              </span>
             </div>
           </div>
+          {(pullError || logoError) && (
+            <div className="mt-2">
+              {pullError && <p className="text-xs text-red-500">{pullError}</p>}
+              {logoError && <p className="text-xs text-red-500">{logoError}</p>}
+            </div>
+          )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Company</label>
             <div className="relative">
@@ -143,6 +357,18 @@ export default function JDEditView({ application, onBack, onSave, onPracticeInte
                 onChange={(e) => update("company", e.target.value)}
                 className="pl-10"
                 placeholder="Company name"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Role</label>
+            <div className="relative">
+              <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                value={analysis.role || ""}
+                onChange={(e) => update("role", e.target.value)}
+                className="pl-10"
+                placeholder="Job title"
               />
             </div>
           </div>

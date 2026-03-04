@@ -139,7 +139,101 @@ export async function searchWithJSearchAPI(params: SearchParams): Promise<Scrape
   }));
 }
 
-// ─── LinkedIn ───
+// ─── LinkedIn (centralized extraction; DOM/class names change often — Scrapeless helps) ───
+
+/** Try to get job detail from LinkedIn job page HTML. Prefers JSON-LD, then DOM regex fallback. */
+export function extractLinkedInJobDetail(html: string): {
+  description: string | null;
+  salary?: string;
+  type?: string;
+  location?: string;
+  employer_logo?: string | null;
+} {
+  const out: {
+    description: string | null;
+    salary?: string;
+    type?: string;
+    location?: string;
+    employer_logo?: string | null;
+  } = {
+    description: null,
+  };
+
+  try {
+    const ldBlocks = html.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi) || [];
+    for (const block of ldBlocks) {
+      const raw = block.replace(/<\/?script[^>]*>/gi, "").trim();
+      const ld = JSON.parse(raw);
+      const items = Array.isArray(ld) ? ld : ld["@graph"] ? (Array.isArray(ld["@graph"]) ? ld["@graph"] : [ld["@graph"]]) : [ld];
+      for (const item of items) {
+        if (item["@type"] === "JobPosting") {
+          if (item.description) {
+            const desc = typeof item.description === "string" ? item.description : "";
+            out.description = htmlToStructuredText(desc).trim() || null;
+          }
+          if (item.jobLocation?.address?.addressLocality) out.location = cleanText(item.jobLocation.address.addressLocality);
+          if (item.employmentType) out.type = Array.isArray(item.employmentType) ? item.employmentType[0] : item.employmentType;
+          const org = item.hiringOrganization;
+          if (org && typeof org === "object" && (org.logo || org.image)) {
+            const logoUrl = typeof org.logo === "string" ? org.logo : typeof org.image === "string" ? org.image : org.logo?.url ?? org.image?.url;
+            if (logoUrl && typeof logoUrl === "string") out.employer_logo = logoUrl;
+          }
+          if (out.description && out.employer_logo) return out;
+          if (out.description) break;
+        }
+      }
+    }
+  } catch {}
+
+  const descMatch = html.match(
+    /class="show-more-less-html__markup[^"]*"[^>]*>([\s\S]*?)<\/div>/,
+  );
+  if (descMatch?.[1]) {
+    out.description = htmlToStructuredText(descMatch[1]).trim() || null;
+  }
+  const salaryMatch = html.match(/class="salary[^"]*"[^>]*>([^<]+)/i);
+  if (salaryMatch?.[1]) out.salary = cleanText(salaryMatch[1]);
+  const typeMatch = html.match(
+    /class="description__job-criteria-text[^"]*"[^>]*>\s*(Full-time|Part-time|Contract|Internship|Temporary)/i,
+  );
+  if (typeMatch?.[1]) out.type = typeMatch[1];
+
+  // Company logo extraction chain — try multiple sources
+  if (!out.employer_logo) {
+    // 1. img src with "company-logo" in URL path
+    const companyLogoMatch = html.match(/src=["'](https?:\/\/media\.licdn\.com\/dms\/image[^"']*company-logo[^"']+)["']/i);
+    if (companyLogoMatch?.[1]) {
+      out.employer_logo = companyLogoMatch[1].replace(/&amp;/g, "&");
+    }
+  }
+  if (!out.employer_logo) {
+    // 2. data-delayed-url with "company-logo" (LinkedIn lazy-loads some images)
+    const delayedLogo = html.match(/data-delayed-url=["'](https?:\/\/media\.licdn\.com[^"']*company-logo[^"']+)["']/i);
+    if (delayedLogo?.[1]) {
+      out.employer_logo = delayedLogo[1].replace(/&amp;/g, "&");
+    }
+  }
+  if (!out.employer_logo) {
+    // 3. og:image meta tag — LinkedIn guest pages almost always include this
+    const ogImage = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["'](https?:\/\/[^"']+)["']/i)
+      || html.match(/<meta[^>]*content=["'](https?:\/\/[^"']+)["'][^>]*property=["']og:image["']/i);
+    if (ogImage?.[1]) {
+      out.employer_logo = ogImage[1].replace(/&amp;/g, "&");
+    }
+  }
+  if (!out.employer_logo) {
+    // 4. Any media.licdn.com image
+    const anyLinkedInImg = html.match(/src=["'](https?:\/\/(?:media\.licdn\.com|cdn\.licdn\.com)[^"']+)["']/i);
+    if (anyLinkedInImg?.[1]) {
+      out.employer_logo = anyLinkedInImg[1].replace(/&amp;/g, "&");
+    }
+  }
+
+  console.log(`[extractLinkedInJobDetail] description: ${out.description ? out.description.length + ' chars' : 'null'}, logo: ${out.employer_logo || 'null'}`);
+
+  return out;
+}
+
 export async function searchLinkedInJobs(params: SearchParams): Promise<ScrapedJob[]> {
   try {
     const allJobs: ScrapedJob[] = [];
@@ -199,6 +293,7 @@ export async function searchLinkedInJobs(params: SearchParams): Promise<ScrapedJ
           capped[i + k].description = r.value.description;
           if (r.value.salary) capped[i + k].salary = r.value.salary;
           if (r.value.type) capped[i + k].type = r.value.type;
+          if (r.value.employer_logo) capped[i + k].employer_logo = r.value.employer_logo;
           enriched++;
         }
       }
@@ -215,31 +310,18 @@ export async function searchLinkedInJobs(params: SearchParams): Promise<ScrapedJ
 async function fetchLinkedInDescription(
   url: string,
   headers: Record<string, string>,
-): Promise<{ description: string; salary?: string; type?: string } | null> {
+): Promise<{ description: string; salary?: string; type?: string; employer_logo?: string | null } | null> {
   try {
     const res = await fetch(url, { headers });
     if (!res.ok) return null;
     const html = await res.text();
-
-    const descMatch = html.match(
-      /class="show-more-less-html__markup[^"]*"[^>]*>([\s\S]*?)<\/div>/,
-    );
-    if (!descMatch) return null;
-
-    const description = cleanText(descMatch[1]).slice(0, 5000);
-    if (description.length < 20) return null;
-
-    const salaryMatch = html.match(
-      /class="salary[^"]*"[^>]*>([^<]+)/i,
-    );
-    const typeMatch = html.match(
-      /class="description__job-criteria-text[^"]*"[^>]*>\s*(Full-time|Part-time|Contract|Internship|Temporary)/i,
-    );
-
+    const detail = extractLinkedInJobDetail(html);
+    if (!detail.description || detail.description.length < 20) return null;
     return {
-      description,
-      salary: salaryMatch ? cleanText(salaryMatch[1]) : undefined,
-      type: typeMatch ? typeMatch[1] : undefined,
+      description: detail.description.slice(0, 5000),
+      salary: detail.salary,
+      type: detail.type,
+      employer_logo: detail.employer_logo ?? null,
     };
   } catch {
     return null;
@@ -273,6 +355,10 @@ function parseLinkedInGuestResults(html: string): ScrapedJob[] {
     const urlMatch = card.match(/href="(https:\/\/www\.linkedin\.com\/jobs\/view\/[^"]+)"/i);
     const jobUrl = urlMatch?.[1]?.replace(/&amp;/g, "&") || `https://www.linkedin.com/jobs/view/${jid}`;
 
+    let employer_logo: string | null = null;
+    const logoImgMatch = card.match(/src="(https?:\/\/(?:media\.licdn\.com|cdn\.licdn\.com)[^"]+)"/i);
+    if (logoImgMatch?.[1]) employer_logo = logoImgMatch[1];
+
     jobs.push({
       id: `linkedin-${jid}`,
       title: cleanText(title),
@@ -287,6 +373,7 @@ function parseLinkedInGuestResults(html: string): ScrapedJob[] {
       source: "LinkedIn",
       tags: extractJobTags(title),
       job_is_remote: loc ? loc.toLowerCase().includes("remote") : false,
+      employer_logo: employer_logo ?? undefined,
     });
   }
 
@@ -418,12 +505,51 @@ export function cleanText(text: string): string {
     .replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Converts HTML to plain text while preserving paragraph/list structure.
+ * Block elements (p, div, li, br, headings, etc.) become newlines so scraped
+ * job descriptions stay readable instead of one run-on line.
+ */
+export function htmlToStructuredText(html: string): string {
+  let out = html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
+  out = out
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<\/tr>/gi, "\n")
+    .replace(/<\/td>/gi, " ")
+    .replace(/<\/th>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/h[1-6]>/gi, "\n");
+  out = out
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, "/")
+    .replace(/<[^>]*>/g, " ");
+  out = out
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+  return out;
+}
+
+/** Derive tags from job title: meaningful words (2+ chars), deduped, limited. */
 export function extractJobTags(title: string): string[] {
-  const skills = [
-    "JavaScript", "TypeScript", "React", "Node.js", "Python", "Java", "AWS", "Docker",
-    "Senior", "Manager", "Lead", "Director", "Engineer", "Developer", "Analyst",
-  ];
-  return skills.filter((s) => title.toLowerCase().includes(s.toLowerCase())).slice(0, 5);
+  const tokens = title
+    .replace(/[^\w\s.-]/g, " ")
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2);
+  return [...new Set(tokens)].slice(0, 8);
 }
 
 export function removeDuplicateJobs(jobs: ScrapedJob[]): ScrapedJob[] {
