@@ -9,16 +9,17 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime? @map("emailVerified")
-  image         String?
-  password      String?
-  accounts      Account[]
-  sessions      Session[]
-  resumes       Resume[]
-  jobApplications JobApplication[]
+  id                String    @id @default(cuid())
+  name              String?
+  email             String    @unique
+  emailVerified     DateTime? @map("emailVerified")
+  image             String?
+  password          String?
+  interviewContext  Json?     @map("interview_context")
+  accounts          Account[]
+  sessions          Session[]
+  resumes           Resume[]
+  jobApplications   JobApplication[]
 
   @@map("user")
 }

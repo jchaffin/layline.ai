@@ -8,7 +8,8 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test src/lib/jobScraper.test.ts"
+    "test": "tsx --test src/lib/jobScraper.test.ts",
+    "test:knowledge": "tsx scripts/test-knowledge-api.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
