@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Eye, EyeOff, FileText, Briefcase } from "lucide-react";
 import ResumeUpload from "@/components/resume/ResumeUpload";
-import PDFPreviewPane from "@/components/resume/PdfPreviewPane";
+import PDFPreviewPane from "@/components/resume/PDFPreviewPane";
 import type { ParsedResume } from "@/lib/schema";
 
 interface ResumeUploadWithPreviewProps {
