@@ -3,9 +3,9 @@ import { getRequiredSession, unauthorizedResponse } from "@/lib/api/auth";
 import { db } from "@/lib/db";
 
 /** GET /api/session/context – return current user's stored interview context (for Electron / coach). */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getRequiredSession();
+    const session = await getRequiredSession(request);
     const userId = session.user?.id;
     if (!userId) return unauthorizedResponse();
 
@@ -24,11 +24,11 @@ export async function GET() {
 /** PUT /api/session/context – store interview context for the current user. */
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getRequiredSession();
+    const session = await getRequiredSession(request);
     const userId = session.user?.id;
     if (!userId) return unauthorizedResponse();
 
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const context = {
       mode: body.mode,
       companyName: body.companyName,

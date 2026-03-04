@@ -1,13 +1,37 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+
+function parseCookieHeader(cookieHeader: string | null): Record<string, string> {
+  if (!cookieHeader) return {};
+  return Object.fromEntries(
+    cookieHeader.split(";").map((s) => {
+      const i = s.indexOf("=");
+      const name = i < 0 ? s.trim() : s.slice(0, i).trim();
+      const value = i < 0 ? "" : s.slice(i + 1).trim();
+      return [name, value];
+    })
+  );
+}
 
 export async function getSession() {
   return getServerSession(authOptions);
 }
 
-export async function getRequiredSession() {
-  const session = await getSession();
+/** Use when the caller has the raw request (e.g. API route) so cookies from non-browser clients (Electron) are used. */
+export async function getSessionFromRequest(request: NextRequest) {
+  const cookieHeader = request.headers.get("cookie");
+  const cookies = parseCookieHeader(cookieHeader);
+  const headers = Object.fromEntries(request.headers.entries());
+  const req = { cookies, headers };
+  const res = { getHeader: () => undefined, setCookie: () => {}, setHeader: () => {} };
+  return getServerSession(req as any, res as any, authOptions);
+}
+
+export async function getRequiredSession(request?: NextRequest) {
+  const session = request
+    ? await getSessionFromRequest(request)
+    : await getSession();
   if (!session?.user) {
     throw new AuthError("Authentication required");
   }
