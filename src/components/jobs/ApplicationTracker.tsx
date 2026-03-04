@@ -402,7 +402,7 @@ export default function ApplicationTracker({
                         {app.jobTitle}
                       </h3>
                       <p className="text-sm text-gray-500 mt-0.5">
-                        {[app.location, app.appliedDate.toLocaleDateString()].filter(Boolean).join(" · ")}
+                        {[app.location, app.salary, app.appliedDate.toLocaleDateString()].filter(Boolean).join(" · ")}
                       </p>
                     </div>
 

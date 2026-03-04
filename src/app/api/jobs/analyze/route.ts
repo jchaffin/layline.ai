@@ -141,6 +141,9 @@ export async function POST(request: NextRequest) {
 
     let jobDescriptionText = description || jobDescription;
     let employerLogoFromUrl: string | null = null;
+    let salaryFromUrl: string | null = null;
+    let locationFromUrl: string | null = null;
+    let typeFromUrl: string | null = null;
 
     if (url) {
       try {
@@ -151,7 +154,10 @@ export async function POST(request: NextRequest) {
             const detail = extractLinkedInJobDetail(htmlContent);
             if (!jobDescriptionText) jobDescriptionText = detail.description || undefined;
             if (detail.employer_logo) employerLogoFromUrl = detail.employer_logo;
-            console.log(`[analyze] LinkedIn logo extracted: ${employerLogoFromUrl || 'null'}`);
+            if (detail.salary) salaryFromUrl = detail.salary;
+            if (detail.location) locationFromUrl = detail.location;
+            if (detail.type) typeFromUrl = detail.type;
+            console.log(`[analyze] LinkedIn extracted: logo=${!!employerLogoFromUrl}, salary=${salaryFromUrl || 'null'}, location=${locationFromUrl || 'null'}`);
           } else {
             if (!jobDescriptionText) {
               jobDescriptionText = htmlToStructuredText(htmlContent);
@@ -187,29 +193,26 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: "system",
-          content: `Analyze the job description and extract structured data. Return JSON with this exact structure:
-{
-  "company": "Company Name",
-  "role": "Job Title",
-  "experience": "3+ years of relevant experience required",
-  "requiredSkills": ["skill1", "skill2"],
-  "preferredSkills": ["skill3", "skill4"],
-  "responsibilities": ["responsibility1", "responsibility2"],
-  "qualifications": ["qualification1", "qualification2"],
-  "experienceLevel": "Entry/Mid/Senior/Executive",
-  "requiredYears": 3,
-  "location": "City, State",
-  "workType": "Remote/Hybrid/Onsite",
-  "companyInfo": "Brief company description",
-  "interviewProcess": [
-    {"step": 1, "name": "Recruiter Screen", "duration": "15 min"},
-    {"step": 2, "name": "Hiring Manager Screen", "duration": "30 min"},
-    {"step": 3, "name": "Technical Screen", "duration": "60 min"},
-    {"step": 4, "name": "Work Trial", "duration": "1-2 days"}
-  ],
-  "keywords": ["keyword1", "keyword2"],
-  "sentiment": 0.8
-}
+          content: `Analyze the job description and extract structured data. Return a JSON object with these fields:
+
+- "company": string — the company name
+- "role": string — the job title
+- "experience": string — e.g. "3+ years of experience in full-stack development"
+- "requiredSkills": string[] — technologies, tools, frameworks, languages explicitly required (e.g. "React", "Python", "AWS")
+- "preferredSkills": string[] — nice-to-have skills mentioned
+- "responsibilities": string[] — key job responsibilities
+- "qualifications": string[] — required qualifications
+- "experienceLevel": "Entry" | "Mid" | "Senior" | "Executive" — pick ONE
+- "requiredYears": number — minimum years required (0 if not stated)
+- "location": string — e.g. "New York, NY"
+- "workType": "Remote" | "Hybrid" | "Onsite" — pick ONE
+- "companyInfo": string — 1-2 sentence summary of the company from the description
+- "salary": string or null — salary range if mentioned (e.g. "$230,000 - $270,000")
+- "interviewProcess": array of {step, name, duration} — only if interview steps are described, otherwise empty array
+- "keywords": string[] — top domain keywords
+- "sentiment": number 0-1 — how appealing the posting is
+
+IMPORTANT: Extract REAL data from the description. Never return placeholder values. If a field cannot be determined, use null or empty array.
 
 CRITICAL - Skills extraction:
 - "requiredSkills" and "preferredSkills" must list actual job skills: technologies (e.g. Python, React, AWS), tools, frameworks, methodologies, languages, certifications, domain knowledge. Extract every skill, technology, and requirement mentioned (must-have in requiredSkills, nice-to-have in preferredSkills).
@@ -274,13 +277,13 @@ For "interviewProcess", extract the EXACT interview steps mentioned in the job d
       id: `uploaded-${Date.now()}`,
       title: analysis.role || "Untitled Role",
       company: analysis.company || "Unknown Company",
-      location: analysis.location || "",
+      location: analysis.location || locationFromUrl || "",
       description: descParts.join("\n\n"),
       url: url || "",
       posted: new Date().toISOString(),
       job_posted_at_datetime_utc: new Date().toISOString(),
-      salary: null as string | null,
-      type: analysis.workType || "Full-time",
+      salary: salaryFromUrl ?? (rawAnalysis.salary as string) ?? null,
+      type: typeFromUrl || analysis.workType || "Full-time",
       job_is_remote: (analysis.workType || "").toLowerCase().includes("remote"),
       source: "Uploaded",
       tags: allSkills.length > 0 ? allSkills : (analysis.keywords || []),

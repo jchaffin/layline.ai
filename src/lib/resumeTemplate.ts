@@ -56,7 +56,7 @@ export function formatDate(dateStr: string | undefined): string {
   if (!dateStr) return "";
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return dateStr;
-  return `${date.getMonth() + 1}/${date.getFullYear()}`;
+  return `${date.getUTCMonth() + 1}/${date.getUTCFullYear()}`;
 }
 
 /** Print/PDF: avoid breaking sections across pages */

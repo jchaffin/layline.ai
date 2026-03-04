@@ -24,18 +24,22 @@ export async function POST(request: NextRequest) {
     }
 
     const detail = extractLinkedInJobDetail(html);
-    if (!detail.description) return NextResponse.json({ description: null });
+    if (!detail.description && !detail.employer_logo && !detail.location) {
+      return NextResponse.json({ description: null });
+    }
 
-    const description = detail.description.slice(0, 5000);
+    const description = detail.description?.slice(0, 5000) ?? null;
 
     const jidMatch = url.match(/(\d{8,})/);
     if (jidMatch) {
       db.jobListing.updateMany({
         where: { externalId: `linkedin-${jidMatch[1]}` },
         data: {
-          description: detail.description.slice(0, 10000),
+          ...(detail.description ? { description: detail.description.slice(0, 10000) } : {}),
           ...(detail.salary ? { salary: detail.salary } : {}),
           ...(detail.type ? { employmentType: detail.type } : {}),
+          ...(detail.employer_logo ? { employerLogo: detail.employer_logo } : {}),
+          ...(detail.location ? { location: detail.location } : {}),
         },
       }).catch(() => {});
     }
@@ -44,6 +48,8 @@ export async function POST(request: NextRequest) {
       description,
       salary: detail.salary ?? null,
       type: detail.type ?? null,
+      employer_logo: detail.employer_logo ?? null,
+      location: detail.location ?? null,
     });
   } catch {
     return NextResponse.json({ error: "Enrichment failed" }, { status: 500 });

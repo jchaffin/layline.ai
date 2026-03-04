@@ -43,17 +43,16 @@ export async function POST(req: NextRequest) {
     const htmlBase = generateResumeHTMLString(resumeData);
     const html = htmlBase.replace(
       /<style>[\s\S]*?<\/style>/,
-      `<style>${css} ${RESUME_PRINT_PAGE_BREAK_CSS} .resume-page { width: 8.5in; }</style>`
+      `<style>${css} ${RESUME_PRINT_PAGE_BREAK_CSS} .resume-page { width: 8.5in; min-height: 11in; box-sizing: border-box; }</style>`
     );
 
     await page.setContent(html, { waitUntil: 'domcontentloaded' });
     await page.emulateMediaType('print');
 
     const pdf = await page.pdf({
-      format: 'A4',
+      format: 'Letter',
       printBackground: true,
       margin: { top: '0', right: '0', bottom: '0', left: '0' },
-      preferCSSPageSize: true,
     });
 
     await browser.close();

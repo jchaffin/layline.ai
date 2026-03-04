@@ -88,7 +88,7 @@ export default function SimpleDatePicker({
             </span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-64 p-3 !bg-white !text-gray-900 !border-gray-200" align="start">
+        <PopoverContent className="w-64 p-3 !bg-white !text-gray-900 !border-gray-200" align="start" side="top" collisionPadding={16}>
           <div className="flex items-center justify-between mb-3">
             <button
               type="button"

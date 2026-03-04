@@ -54,30 +54,22 @@ export function GooglePlacesAutocomplete({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
 
-  // Load Google Maps API
   useEffect(() => {
-    if (window.google) {
-      initializeServices();
-      return;
-    }
-
-    // Create callback function
-    window.initGoogleMaps = () => {
-      initializeServices();
-    };
-    
-    // Load Google Maps script
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}&libraries=places&callback=initMap`;
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
-
-    return () => {
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
+    const tryInit = () => {
+      if (window.google?.maps?.places?.AutocompleteService) {
+        initializeServices();
+        return true;
       }
+      return false;
     };
+    if (tryInit()) return;
+
+    const interval = setInterval(() => {
+      if (tryInit()) clearInterval(interval);
+    }, 300);
+
+    const timeout = setTimeout(() => clearInterval(interval), 15000);
+    return () => { clearInterval(interval); clearTimeout(timeout); };
   }, []);
 
   const initializeServices = () => {

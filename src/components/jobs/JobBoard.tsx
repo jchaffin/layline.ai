@@ -252,31 +252,70 @@ export default function JobBoard({ onAddToTracker, resumeData }: JobBoardProps) 
   }, [loadMore]);
 
   useEffect(() => {
-    if (!selected) return;
-    const isStub = selected.source === "LinkedIn" && selected.description?.startsWith("View full details");
-    if (!isStub) return;
-    fetch("/api/jobs/enrich", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: selected.url }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (!data.description) return;
-        setJobs((prev) =>
-          prev.map((j) =>
-            j.id === selected.id
-              ? { ...j, description: data.description, salary: data.salary || j.salary, type: data.type || j.type }
-              : j,
-          ),
-        );
-        setSelected((prev) =>
-          prev && prev.id === selected.id
-            ? { ...prev, description: data.description, salary: data.salary || prev.salary, type: data.type || prev.type }
-            : prev,
-        );
-      })
-      .catch(() => {});
+    if (!selected?.url) return;
+    const jobId = selected.id;
+    let cancelled = false;
+
+    const applyUpdate = (update: Partial<Job>) => {
+      if (cancelled) return;
+      setJobs((prev) => prev.map((j) => j.id === jobId ? { ...j, ...update } : j));
+      setSelected((prev) => prev && prev.id === jobId ? { ...prev, ...update } : prev);
+    };
+
+    (async () => {
+      const isStub = selected.description?.startsWith("View full details") || (selected.description?.length ?? 0) < 100;
+      let enrichedDescription = selected.description;
+
+      if (isStub) {
+        try {
+          const r = await fetch("/api/jobs/enrich", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: selected.url }),
+          });
+          if (cancelled) return;
+          const data = await r.json();
+          if (data.description || data.employer_logo || data.location) {
+            const update: Partial<Job> = {};
+            if (data.description) { update.description = data.description; enrichedDescription = data.description; }
+            if (data.salary && !selected.salary) update.salary = data.salary;
+            if (data.type && !selected.type) update.type = data.type;
+            if (data.employer_logo) update.employer_logo = data.employer_logo;
+            if (data.location && !selected.location) update.location = data.location;
+            applyUpdate(update);
+          }
+        } catch {}
+      }
+
+      if (cancelled) return;
+
+      const needsAnalysis = !selected.analysis || !(
+        (selected.analysis.requiredSkills?.length ?? 0) > 0 ||
+        (selected.analysis.qualifications?.length ?? 0) > 0
+      );
+      if (!needsAnalysis) return;
+
+      try {
+        const desc = enrichedDescription && enrichedDescription.length >= 150 ? enrichedDescription : undefined;
+        const r = await fetch("/api/jobs/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: selected.url, ...(desc ? { description: desc } : {}) }),
+        });
+        if (cancelled || !r.ok) return;
+        const data = await r.json();
+        if (!data?.analysis) return;
+        const update: Partial<Job> = { analysis: data.analysis };
+        if (data.job?.description && (!enrichedDescription || enrichedDescription.length < 150)) update.description = data.job.description;
+        if (data.job?.salary) update.salary = data.job.salary;
+        if (data.job?.employer_logo && !selected.employer_logo) update.employer_logo = data.job.employer_logo;
+        if (data.job?.location && !selected.location) update.location = data.job.location;
+        if (data.job?.type) update.type = data.job.type;
+        applyUpdate(update);
+      } catch {}
+    })();
+
+    return () => { cancelled = true; };
   }, [selected?.id]);
 
   const [showUpload, setShowUpload] = useState(false);
@@ -697,7 +736,7 @@ function JobCard({
     >
       <div className="p-3.5">
         <div className="flex gap-3">
-          <CompanyLogo src={job.employer_logo} url={job.url} size="md" />
+          <CompanyLogo src={job.employer_logo} url={job.url} companyName={job.company} size="md" />
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-[13.5px] text-gray-900 leading-snug line-clamp-1">{job.title}</p>
             <p className="text-[13px] text-gray-600 leading-snug">{job.company}</p>

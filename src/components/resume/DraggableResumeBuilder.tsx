@@ -500,8 +500,7 @@ function ExperienceItem({
               <SimpleDatePicker
                 value={experience.endDate}
                 onChange={(date) => {
-                  updateField('endDate', date);
-                  if (date) updateField('isCurrentRole', false);
+                  onUpdate({ ...experience, endDate: date, ...(date ? { isCurrentRole: false } : {}) });
                 }}
                 placeholder="End date"
               />

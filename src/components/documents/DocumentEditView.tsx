@@ -218,12 +218,27 @@ export default function DocumentEditView({
         </div>
         <div className="shrink-0">
           <button
-            onClick={() => {
+            onClick={async () => {
               handleSave();
-              window.open(
-                `/api/resume/download?key=${encodeURIComponent(doc.id)}&style=${selectedTemplate}`,
-                "_blank",
-              );
+              try {
+                const res = await fetch("/api/resume/generate/pdf", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ resumeData, templateId: selectedTemplate }),
+                });
+                if (!res.ok) throw new Error("PDF generation failed");
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${docName || "resume"}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              } catch (e) {
+                console.error("Download failed:", e);
+              }
             }}
             className="h-8 px-4 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors inline-flex items-center gap-1.5"
           >

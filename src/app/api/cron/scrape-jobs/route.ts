@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
             update: {
               title: job.title,
               company: job.company,
-              employerLogo: job.employer_logo,
+              employerLogo: job.employer_logo ?? null,
               location: job.location,
               description: job.description?.slice(0, 10000) || "",
               url: job.url,
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
               externalId: job.id,
               title: job.title,
               company: job.company,
-              employerLogo: job.employer_logo,
+              employerLogo: job.employer_logo ?? null,
               location: job.location,
               description: job.description?.slice(0, 10000) || "",
               url: job.url,

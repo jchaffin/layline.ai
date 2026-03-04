@@ -49,35 +49,40 @@ export default function JobManager({ resumeData }: { resumeData?: ParsedResume |
     let description = job.description || undefined;
     let analysis = job.analysis ?? undefined;
 
-    // If we have a big blob of text but no structured analysis, run it through the analyze API to get qualifications, skills, responsibilities, etc.
     const hasStructuredAnalysis =
       analysis &&
-      ( (analysis.requiredSkills?.length ?? 0) > 0 ||
+      ((analysis.requiredSkills?.length ?? 0) > 0 ||
         (analysis.qualifications?.length ?? 0) > 0 ||
-        (analysis.responsibilities?.length ?? 0) > 0 );
-    const blob =
-      (job.description || "").trim() ||
-      [
-        ...(job.job_highlights?.Qualifications ?? []),
-        ...(job.job_highlights?.Responsibilities ?? []),
-      ].join("\n\n");
+        (analysis.responsibilities?.length ?? 0) > 0);
 
-    if (!hasStructuredAnalysis && blob.length >= 150) {
-      try {
-        const analyzeRes = await fetch("/api/jobs/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ description: blob }),
-        });
-        if (analyzeRes.ok) {
-          const data = await analyzeRes.json();
-          if (data.analysis) {
-            analysis = data.analysis;
+    if (!hasStructuredAnalysis) {
+      // Prefer URL-based analysis (fetches page + LLM extraction) over text-only
+      if (job.url) {
+        try {
+          const analyzeRes = await fetch("/api/jobs/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: job.url, ...(description && description.length >= 150 ? { description } : {}) }),
+          });
+          if (analyzeRes.ok) {
+            const data = await analyzeRes.json();
+            if (data.analysis) analysis = data.analysis;
             if (data.job?.description) description = data.job.description;
           }
-        }
-      } catch {
-        // Fall through to fallback below
+        } catch {}
+      } else if (description && description.length >= 150) {
+        try {
+          const analyzeRes = await fetch("/api/jobs/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ description }),
+          });
+          if (analyzeRes.ok) {
+            const data = await analyzeRes.json();
+            if (data.analysis) analysis = data.analysis;
+            if (data.job?.description) description = data.job.description;
+          }
+        } catch {}
       }
     }
 
@@ -145,7 +150,7 @@ export default function JobManager({ resumeData }: { resumeData?: ParsedResume |
     setApplications(updated);
   };
 
-  const handleJDSave = async (id: string, data: { jobTitle: string; company: string; location: string; description?: string; analysis: any; jobUrl?: string }) => {
+  const handleJDSave = (id: string, data: { jobTitle: string; company: string; location: string; description?: string; analysis?: any; jobUrl?: string }) => {
     setApplications((prev) =>
       prev.map((a) => a.id === id ? { ...a, jobTitle: data.jobTitle, company: data.company, location: data.location, description: data.description, analysis: data.analysis, jobUrl: data.jobUrl ?? a.jobUrl } : a),
     );
@@ -156,7 +161,9 @@ export default function JobManager({ resumeData }: { resumeData?: ParsedResume |
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        notes: undefined,
+        jobTitle: data.jobTitle,
+        company: data.company,
+        location: data.location,
         description: data.description,
         analysis: data.analysis,
         ...(data.jobUrl !== undefined && { jobUrl: data.jobUrl }),

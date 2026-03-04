@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { GooglePlacesAutocomplete } from "@/components/shared/AutoComplete";
 import type { Analysis, InterviewStep } from "@/types/job";
 import {
   ArrowLeft,
@@ -376,15 +377,11 @@ export default function JDEditView({ application, onBack, onSave, onPracticeInte
 
         <div>
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Location</label>
-          <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              value={analysis.location || ""}
-              onChange={(e) => update("location", e.target.value)}
-              className="pl-10"
-              placeholder="City, State"
-            />
-          </div>
+          <GooglePlacesAutocomplete
+            value={analysis.location || ""}
+            onChange={(value) => update("location", value)}
+            placeholder="City, State"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-4">

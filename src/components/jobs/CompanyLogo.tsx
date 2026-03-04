@@ -3,41 +3,52 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
+const JOB_BOARD_DOMAINS = new Set([
+  "linkedin.com", "indeed.com", "greenhouse.io", "lever.co",
+  "workday.com", "glassdoor.com", "ziprecruiter.com", "monster.com",
+  "learn4good.com", "simplyhired.com", "dice.com", "careerbuilder.com",
+]);
+
 function domainFromUrl(url?: string | null): string | null {
   if (!url) return null;
   try {
     const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
     if (!host || !host.includes(".")) return null;
-    // Job boards don't represent the company; use company name instead when provided
-    if (host.includes("linkedin.com") || host.includes("indeed.com") || host.includes("greenhouse.io") || host.includes("lever.co") || host.includes("workday.com")) return null;
+    for (const jb of JOB_BOARD_DOMAINS) {
+      if (host.includes(jb)) return null;
+    }
     return host;
   } catch {
     return null;
   }
 }
 
-/** Guess likely company domain from name for Clearbit logo lookup (e.g. "Stripe, Inc." -> stripe.com) */
-function domainFromCompanyName(companyName?: string | null): string | null {
-  if (!companyName || !companyName.trim()) return null;
-  let name = companyName.trim();
-  // Strip common corporate suffixes so "Stripe, Inc." -> "Stripe", "Acme Corp" -> "Acme"
-  const suffixRegex = /\s*(,?\s*(Inc\.?|Corp\.?|Corporation|Co\.?|Company|LLC|L\.L\.C\.?|Ltd\.?|Limited|L\.P\.?|&?\s*Co\.?))\s*$/i;
-  name = name.replace(suffixRegex, "").trim();
-  const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (!slug) return null;
-  return `${slug}.com`;
+function domainFromCompanyName(name?: string | null): string | null {
+  if (!name?.trim()) return null;
+  const slug = name.trim()
+    .replace(/\s*(,?\s*(Inc\.?|Corp\.?|Corporation|Co\.?|Company|LLC|L\.?L\.?C\.?|Ltd\.?|Limited|L\.?P\.?|&?\s*Co\.?))\s*$/i, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+  return slug ? `${slug}.com` : null;
 }
 
-/** Logo URL from domain; avoids Clearbit (often ERR_NAME_NOT_RESOLVED). Uses Google favicon as fallback. */
-function logoUrlFromSource(
+function buildFallbackChain(
   src?: string | null,
   url?: string | null,
-  companyName?: string | null
-): string | null {
-  if (src) return src;
+  companyName?: string | null,
+): string[] {
+  const chain: string[] = [];
   const domain = domainFromUrl(url) ?? domainFromCompanyName(companyName);
-  if (!domain) return null;
-  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
+  const favicon = domain
+    ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`
+    : null;
+
+  if (src?.trim()) {
+    chain.push(src.trim().replace(/&amp;/g, "&"));
+  }
+  if (favicon) chain.push(favicon);
+  return chain;
 }
 
 function companyInitial(companyName?: string | null): string {
@@ -55,16 +66,16 @@ export function CompanyLogo({
 }: {
   src?: string | null;
   url?: string | null;
-  /** Company name used to guess domain when url is missing or a job-board URL (e.g. LinkedIn) */
   companyName?: string | null;
   size?: "sm" | "md";
-  /** When true, show company initial when logo is unavailable (default true) */
   showFallback?: boolean;
 }) {
-  const [imgError, setImgError] = useState(false);
-  const logoUrl = logoUrlFromSource(src, url, companyName);
-  useEffect(() => { setImgError(false); }, [src, url, companyName]);
-  const showImage = !!logoUrl && !imgError;
+  const chain = buildFallbackChain(src, url, companyName);
+  const [idx, setIdx] = useState(0);
+  useEffect(() => { setIdx(0); }, [src, url, companyName]);
+
+  const logoUrl = chain[idx] ?? null;
+  const showImage = !!logoUrl;
   const showInitial = showFallback && companyName && !showImage;
 
   if (!showImage && !showInitial) return null;
@@ -83,15 +94,10 @@ export function CompanyLogo({
           alt=""
           referrerPolicy="no-referrer"
           className={cn(size === "sm" ? "w-7 h-7" : "w-8 h-8", "object-contain")}
-          onError={() => setImgError(true)}
+          onError={() => setIdx((prev) => prev + 1)}
         />
       ) : (
-        <span
-          className={cn(
-            "font-semibold",
-            size === "sm" ? "text-sm" : "text-base",
-          )}
-        >
+        <span className={cn("font-semibold", size === "sm" ? "text-sm" : "text-base")}>
           {companyInitial(companyName)}
         </span>
       )}

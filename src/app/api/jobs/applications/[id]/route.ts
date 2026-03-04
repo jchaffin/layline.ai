@@ -21,6 +21,8 @@ export async function PATCH(
     const updated = await db.jobApplication.update({
       where: { id },
       data: {
+        ...(body.jobTitle !== undefined && { jobTitle: body.jobTitle }),
+        ...(body.company !== undefined && { company: body.company }),
         ...(body.status !== undefined && { status: body.status }),
         ...(body.notes !== undefined && { notes: body.notes }),
         ...(body.jobUrl !== undefined && { jobUrl: body.jobUrl || "" }),

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -9,7 +9,9 @@ import {
   Download, 
   Printer,
   X,
-  Edit
+  Edit,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -32,14 +34,24 @@ const PDFViewer: React.FC<Props> = ({
   showEditButton = false,
 }) => {
   const [numPages, setNumPages] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const [scale, setScale] = useState<number>(1.0);
   const [error, setError] = useState<string | null>(null);
+  const pageRefs = React.useRef<Map<number, HTMLDivElement>>(new Map());
 
   const options = useMemo(() => ({}), []);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
+    setCurrentPage(1);
     setError(null);
+  };
+
+  const goToPage = (page: number) => {
+    if (page < 1 || page > numPages) return;
+    setCurrentPage(page);
+    const el = pageRefs.current.get(page);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const onDocumentLoadError = (error: Error) => {
@@ -118,9 +130,34 @@ const PDFViewer: React.FC<Props> = ({
   if (!pdfUrl) return <p>No PDF to display.</p>;
 
   return (
-    <div className="w-full h-full relative group">
-      {/* PDF Content */}
-      <div className="w-full h-full overflow-auto bg-gray-50">
+    <div className="w-full h-full relative group flex flex-col">
+      {numPages > 1 && (
+        <div className="flex items-center justify-center gap-3 py-2 px-4 bg-white border-b border-gray-200 flex-shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={currentPage <= 1}
+            className="h-8 w-8 p-0"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <span className="text-sm text-gray-600 font-medium tabular-nums">
+            Page {currentPage} of {numPages}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={currentPage >= numPages}
+            className="h-8 w-8 p-0"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
+      <div className="w-full flex-1 min-h-0 overflow-auto bg-gray-50">
         <Document
           file={pdfUrl}
           onLoadSuccess={onDocumentLoadSuccess}
@@ -149,8 +186,12 @@ const PDFViewer: React.FC<Props> = ({
           options={options}
         >
           <div className="space-y-6 p-4">
-            {Array.from(new Array(numPages), (el, index) => (
-              <div key={`page_${index + 1}`} className="flex flex-col items-center">
+            {Array.from(new Array(numPages), (_, index) => (
+              <div
+                key={`page_${index + 1}`}
+                ref={(el) => { if (el) pageRefs.current.set(index + 1, el); }}
+                className="flex flex-col items-center"
+              >
                 <Page
                   pageNumber={index + 1}
                   scale={scale}
@@ -164,7 +205,6 @@ const PDFViewer: React.FC<Props> = ({
         </Document>
       </div>
 
-      {/* Action Buttons - appears on right side on hover */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
         <div className="absolute top-4 right-4 z-10 pointer-events-auto">
           {actionButtons}
