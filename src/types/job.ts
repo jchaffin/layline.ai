@@ -29,6 +29,7 @@ export interface Job {
   missingSkills?: string[];
   analysis?: {
     companyInfo?: string;
+    companyLogoUrl?: string;
     experience?: string;
     experienceLevel?: string;
     requiredSkills?: string[];
