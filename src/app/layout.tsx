@@ -3,7 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { QueryProvider } from '@/lib/queryProvider'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
-import { Toaster } from '@/components/ui/toaster'
+import { Toaster } from '@/components/ui/Toaster'
 import AuthSessionProvider from '@/components/providers/SessionProvider'
 import '@/lib/clearLegacyData' // Clear legacy data on app load
 
