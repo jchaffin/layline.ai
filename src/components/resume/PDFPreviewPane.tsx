@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
-const PDFViewer = dynamic(() => import("@/components/resume/PdfViewer"), {
+const PDFViewer = dynamic(() => import("@/components/resume/PDFViewer"), {
   ssr: false,
   loading: () => (
     <div className="p-4 text-sm text-gray-600">Loading viewer…</div>
