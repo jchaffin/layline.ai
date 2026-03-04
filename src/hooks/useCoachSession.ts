@@ -160,7 +160,9 @@ export function useCoachSession() {
       let audioStream: MediaStream;
       if (interviewAudioEl) {
         try {
-          audioStream = interviewAudioEl.captureStream();
+          // captureStream() exists on HTMLMediaElement in browsers; DOM types may omit it
+          const el = interviewAudioEl as HTMLMediaElement & { captureStream(): MediaStream };
+          audioStream = el.captureStream();
         } catch (err) {
           console.error("[coach] captureStream failed:", err);
           return;
