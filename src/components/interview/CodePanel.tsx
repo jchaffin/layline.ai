@@ -43,7 +43,7 @@ interface TestResult {
 /** Per language: single file (string) or multi-file (filename -> content) */
 type StarterCodeValue = string | Record<string, string>;
 
-interface CodingProblem {
+export interface CodingProblem {
   id: string;
   title: string;
   slug: string;

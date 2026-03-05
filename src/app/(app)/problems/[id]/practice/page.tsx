@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { ArrowLeft } from "lucide-react";
+import type { CodingProblem } from "@/components/interview/CodePanel";
 
 const CodePanel = dynamic(() => import("@/components/interview/CodePanel"), {
   ssr: false,
@@ -13,7 +14,7 @@ export default function ProblemPracticePage() {
   const router = useRouter();
   const params = useParams();
   const id = params?.id as string | undefined;
-  const [problem, setProblem] = useState<Record<string, unknown> | null>(null);
+  const [problem, setProblem] = useState<CodingProblem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +86,7 @@ export default function ProblemPracticePage() {
         <span className="font-medium truncate">{String(problem.title)}</span>
       </div>
       <div className="flex-1 min-h-0">
-        <CodePanel problem={problem as Parameters<typeof CodePanel>[0]["problem"]} />
+        <CodePanel problem={problem} />
       </div>
     </div>
   );
