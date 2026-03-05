@@ -165,8 +165,8 @@ function LiveSession() {
         </div>
       </div>
 
-      <div className={`flex-1 flex ${activeProblem ? "max-w-[1600px]" : "max-w-5xl"} mx-auto w-full`}>
-        <div className={`${activeProblem ? "w-80" : "flex-1"} flex flex-col shrink-0`}>
+      <div className={`flex-1 flex min-h-0 ${setupData?.mode === "technical" || activeProblem ? "max-w-[1600px]" : "max-w-5xl"} mx-auto w-full`}>
+        <div className={`${activeProblem || setupData?.mode === "technical" ? "w-80" : "flex-1"} flex flex-col shrink-0 min-w-0`}>
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
             {visibleItems.length === 0 && (
               <div className="flex items-center justify-center h-full">
@@ -226,13 +226,44 @@ function LiveSession() {
           </div>
         </div>
 
-        {activeProblem && (
-          <div className="flex-1 min-w-0">
-            <CodePanel ref={codePanelRef} problem={activeProblem} />
+        {setupData?.mode === "technical" && (
+          <div className="flex-1 flex flex-col min-w-[420px] min-h-0 border-l bg-muted/30">
+            {activeProblem ? (
+              <CodePanel ref={codePanelRef} problem={activeProblem} />
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
+                <p className="text-sm font-medium text-foreground mb-1">Code &amp; problem area</p>
+                <p className="text-xs max-w-sm mb-4">
+                  When the interviewer presents a coding problem, it will appear here. Discuss your approach, tradeoffs, and complexity first—then you can sketch or implement in the editor.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch("/api/problems?difficulty=medium");
+                      if (!res.ok) return;
+                      const { problems } = await res.json();
+                      if (!problems?.length) return;
+                      const pick = problems[Math.floor(Math.random() * problems.length)];
+                      const detailRes = await fetch(`/api/problems/${pick.id}`);
+                      if (!detailRes.ok) return;
+                      const { problem } = await detailRes.json();
+                      setActiveProblem(problem);
+                      setCodingProblemActive?.(true);
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                >
+                  Load sample problem
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
-        <div className={`${activeProblem ? "w-72" : "w-96"} border-l overflow-y-auto p-4 space-y-4 shrink-0`}>
+        <div className={`${activeProblem || setupData?.mode === "technical" ? "w-72" : "w-96"} border-l overflow-y-auto p-4 space-y-4 shrink-0`}>
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <Lightbulb className="w-4 h-4 text-yellow-500" />

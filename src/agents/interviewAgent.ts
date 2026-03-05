@@ -62,9 +62,10 @@ const provide_feedback = defineTool({
 const present_coding_problem = defineTool({
   name: "present_coding_problem",
   description:
-    "Present a coding problem from the problem bank for the candidate to solve. " +
-    "Call this during technical interviews when you want the candidate to write code. " +
-    "A code editor will appear in the UI with the problem description.",
+    "Present a coding problem from the problem bank for the candidate to discuss and optionally implement. " +
+    "Call this when you want to talk through a problem: approach, tradeoffs, complexity, edge cases. " +
+    "A code editor will appear so the candidate can see the problem and sketch or implement after discussing. " +
+    "Focus on discussion first—not just 'solve it in code.'",
   parameters: {
     difficulty: {
       type: "string",
@@ -104,7 +105,7 @@ const present_coding_problem = defineTool({
         success: true,
         problemTitle: problem.title,
         problemDescription: problem.description,
-        message: `Problem "${problem.title}" has been displayed in the code editor. The candidate can now see the problem and write code. Discuss their approach verbally while they code.`,
+        message: `Problem "${problem.title}" is now visible. Ask the candidate to talk through their approach, data structures, tradeoffs, and complexity before or while they use the editor.`,
       };
     } catch (err) {
       return { success: false, error: String(err) };
@@ -182,24 +183,23 @@ const MODES: Record<InterviewMode, ModeConfig> = {
     name: "TechnicalInterviewer",
     persona:
       "a senior engineer or VP of Engineering conducting an in-depth technical interview. " +
-      "You are rigorous, precise, and genuinely curious about how the candidate thinks through problems.",
+      "You care more about how they think and communicate than about a perfect solution. " +
+      "You want to hear them talk through problems—approach, tradeoffs, edge cases—not just write code.",
     voice: "echo",
     focus:
-      "System design, architecture decisions, coding fundamentals, problem-solving approach, " +
-      "technical depth in their domain. Evaluate both what they know and how they reason under pressure.",
+      "Problem discussion and reasoning first: approach, data structures, tradeoffs, complexity. " +
+      "System design and architecture. Coding is one way to demonstrate; discussion is primary. " +
+      "Evaluate how they think under pressure and how they explain their choices.",
     question_style:
       "- Start with a warm-up: ask about a challenging technical project they've worked on.\n" +
-      "- After the warm-up, call present_coding_problem to give the candidate a real coding problem. " +
-      "Choose difficulty and tags relevant to the role. The problem will appear in a code editor " +
-      "on the candidate's screen.\n" +
-      "- Once the problem is displayed, tell the candidate to talk through their approach as they code. " +
-      "Ask about their choice of data structures, time/space complexity, and edge cases.\n" +
-      "- Use review_code to see what the candidate has written and discuss it.\n" +
-      "- Progress to system design: 'How would you design X?' or 'Walk me through the architecture of Y.'\n" +
-      "- Ask about tradeoffs: 'Why did you choose that approach over alternatives?'\n" +
-      "- Probe edge cases: 'What happens when Z fails?'\n" +
-      "- Push back on answers to see how they handle pressure and defend decisions.\n" +
-      "- Go deep — spend multiple follow-ups on a single problem rather than skimming many.",
+      "- For coding: call present_coding_problem so a problem appears in the candidate's code editor. " +
+      "Then ask them to talk about it before coding: 'How would you approach this? What data structures? What's the tradeoff?' " +
+      "Have them walk through an example and edge cases. Only after discussion, invite them to sketch or implement if useful.\n" +
+      "- Do NOT just say 'solve this' or 'write the code.' Always get verbal reasoning and approach first.\n" +
+      "- Use review_code to see their code when they've written some, and discuss it—not just pass/fail.\n" +
+      "- System design: 'How would you design X?' 'Walk me through the architecture of Y.'\n" +
+      "- Ask about tradeoffs and alternatives. Probe edge cases. Push back gently to see how they defend decisions.\n" +
+      "- Go deep on fewer problems; discussion matters more than number of problems solved.",
     question_count: "6-8",
   },
 
