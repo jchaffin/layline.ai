@@ -9,7 +9,11 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     let userId = (session?.user as any)?.id as string | undefined;
     if (!userId) {
-      const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+      const secret = process.env.NEXTAUTH_SECRET;
+      const token =
+        (await getToken({ req: request, secret })) ??
+        (await getToken({ req: request, secret, cookieName: "__Host-next-auth.session-token" })) ??
+        (await getToken({ req: request, secret, cookieName: "__Secure-next-auth.session-token" }));
       userId = token?.sub ?? undefined;
     }
 
@@ -47,7 +51,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     let userId = (session?.user as any)?.id as string | undefined;
     if (!userId) {
-      const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+      const secret = process.env.NEXTAUTH_SECRET;
+      const token =
+        (await getToken({ req: request, secret })) ??
+        (await getToken({ req: request, secret, cookieName: "__Host-next-auth.session-token" })) ??
+        (await getToken({ req: request, secret, cookieName: "__Secure-next-auth.session-token" }));
       userId = token?.sub ?? undefined;
     }
 

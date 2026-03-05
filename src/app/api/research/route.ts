@@ -4,13 +4,23 @@ const PERPLEXITY_API = "https://api.perplexity.ai/chat/completions";
 
 export async function POST(request: NextRequest) {
   try {
-    const { company, role, jobDescription } = await request.json();
+    let body: { company?: string; role?: string; jobDescription?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON body" },
+        { status: 400 }
+      );
+    }
+    const { company, role, jobDescription } = body;
 
     const apiKey = process.env.PERPLEXITY_API_KEY;
     if (!apiKey) {
+      console.error("Research: PERPLEXITY_API_KEY is not set");
       return NextResponse.json(
-        { error: "Perplexity API key not configured" },
-        { status: 500 }
+        { error: "Research is not configured. Set PERPLEXITY_API_KEY in environment." },
+        { status: 503 }
       );
     }
 
@@ -22,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const jdSnippet = jobDescription
-      ? `\n\nJob description excerpt:\n${jobDescription.slice(0, 1500)}`
+      ? `\n\nJob description excerpt:\n${String(jobDescription).slice(0, 1500)}`
       : "";
 
     const prompt = `Research the following for an upcoming job interview:
@@ -59,16 +69,42 @@ Keep it factual and concise. Focus on information that would help a candidate pr
       }),
     });
 
+    const text = await res.text();
     if (!res.ok) {
-      const text = await res.text();
-      console.error("Perplexity API error:", res.status, text);
+      let errDetail: string;
+      try {
+        const parsed = JSON.parse(text);
+        errDetail =
+          parsed?.error?.message ||
+          parsed?.error ||
+          (typeof parsed?.message === "string" ? parsed.message : text?.slice(0, 200) || res.statusText);
+      } catch {
+        errDetail = text?.slice(0, 200) || res.statusText;
+      }
+      console.error("Perplexity API error:", res.status, errDetail);
       return NextResponse.json(
-        { error: `Perplexity API error: ${res.status}` },
-        { status: 500 }
+        {
+          error: "Research service error",
+          details: res.status === 401
+            ? "Invalid or missing Perplexity API key"
+            : res.status === 429
+              ? "Rate limit exceeded. Try again shortly."
+              : String(errDetail),
+        },
+        { status: res.status >= 400 && res.status < 500 ? res.status : 502 }
       );
     }
 
-    const data = await res.json();
+    let data: { choices?: Array<{ message?: { content?: string } }>; citations?: string[] };
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.error("Research: invalid JSON from Perplexity", text?.slice(0, 200));
+      return NextResponse.json(
+        { error: "Research service returned invalid response" },
+        { status: 502 }
+      );
+    }
     const research = data.choices?.[0]?.message?.content || "";
     const citations = data.citations || [];
 
@@ -76,7 +112,7 @@ Keep it factual and concise. Focus on information that would help a candidate pr
   } catch (error) {
     console.error("Research error:", error);
     return NextResponse.json(
-      { error: "Research failed", details: String(error) },
+      { error: "Research failed", details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

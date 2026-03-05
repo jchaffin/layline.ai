@@ -9,7 +9,7 @@ import {
   forwardRef,
   useMemo,
 } from "react";
-import Editor, { type OnMount } from "@monaco-editor/react";
+import Editor, { type OnMount, type BeforeMount } from "@monaco-editor/react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -158,6 +158,17 @@ const CodePanel = forwardRef<CodePanelRef, CodePanelProps>(
 
     const handleEditorMount: OnMount = (editor) => {
       editorRef.current = editor;
+    };
+
+    const handleBeforeMount: BeforeMount = (monaco) => {
+      // Ensure "c" (and other letters) are not stolen by a keybinding — some contexts
+      // (e.g. suggest widget, chord) can bind KeyC; add a rule so unmodified KeyC types "c".
+      monaco.editor.addKeybindingRule({
+        keybinding: monaco.KeyCode.KeyC,
+        when: "editorTextFocus && !suggestWidgetVisible && !suggestWidgetMultipleSuggestionsVisible",
+        command: "type",
+        args: { text: "c" },
+      });
     };
 
     const visibleTests = useMemo(
@@ -377,7 +388,7 @@ const CodePanel = forwardRef<CodePanelRef, CodePanelProps>(
         )}
 
         {/* Monaco editor */}
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0" data-monaco-editor-root>
           <Editor
             key={activeFile}
             language={language}
@@ -385,6 +396,7 @@ const CodePanel = forwardRef<CodePanelRef, CodePanelProps>(
             onChange={(v) =>
               setFiles((prev) => ({ ...prev, [activeFile]: v ?? "" }))
             }
+            beforeMount={handleBeforeMount}
             onMount={handleEditorMount}
             theme="vs-dark"
             options={{
@@ -396,6 +408,7 @@ const CodePanel = forwardRef<CodePanelRef, CodePanelProps>(
               tabSize: 2,
               wordWrap: "on",
               padding: { top: 8 },
+              quickSuggestions: { other: false, comments: false, strings: false },
             }}
           />
         </div>
