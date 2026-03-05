@@ -15,6 +15,7 @@ import {
   Trash2,
   X,
   Search,
+  Play,
 } from "lucide-react";
 
 interface ProblemSummary {
@@ -202,6 +203,15 @@ export default function ProblemsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5"
+                      onClick={() => router.push(`/problems/${p.id}/practice`)}
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      Practice
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"

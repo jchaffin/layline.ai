@@ -193,8 +193,9 @@ function ContactSection({ data, onUpdate, grip }: { data: any; onUpdate: (data: 
 
         <div className="grid grid-cols-1 gap-4">
           <div>
-            <Label>Website</Label>
+            <Label>Website URL</Label>
             <Input
+              type="url"
               value={contact.website || ''}
               onChange={(e) => updateField('website', e.target.value)}
               placeholder="https://yourwebsite.com"

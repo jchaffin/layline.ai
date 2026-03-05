@@ -167,6 +167,7 @@ export async function searchWithJSearchAPI(params: SearchParams): Promise<Scrape
 /** Try to get job detail from LinkedIn job page HTML. Prefers JSON-LD, then DOM regex fallback. */
 export function extractLinkedInJobDetail(html: string): {
   description: string | null;
+  title?: string | null;
   salary?: string;
   type?: string;
   location?: string;
@@ -174,6 +175,7 @@ export function extractLinkedInJobDetail(html: string): {
 } {
   const out: {
     description: string | null;
+    title?: string | null;
     salary?: string;
     type?: string;
     location?: string;
@@ -190,6 +192,7 @@ export function extractLinkedInJobDetail(html: string): {
       const items = Array.isArray(ld) ? ld : ld["@graph"] ? (Array.isArray(ld["@graph"]) ? ld["@graph"] : [ld["@graph"]]) : [ld];
       for (const item of items) {
         if (item["@type"] === "JobPosting") {
+          if (item.title && typeof item.title === "string") out.title = cleanText(item.title).trim() || null;
           if (item.description) {
             const desc = typeof item.description === "string" ? item.description : "";
             out.description = htmlToStructuredText(desc).trim() || null;
@@ -226,6 +229,15 @@ export function extractLinkedInJobDetail(html: string): {
     /class="description__job-criteria-text[^"]*"[^>]*>\s*(Full-time|Part-time|Contract|Internship|Temporary)/i,
   );
   if (typeMatch?.[1]) out.type = normalizeEmploymentType(typeMatch[1]);
+
+  // Job title: from <title> "Job Title at Company in Location | LinkedIn"
+  if (!out.title) {
+    const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim();
+    if (titleTag) {
+      const beforeAt = titleTag.split(/\s+at\s+/i)[0]?.trim();
+      if (beforeAt && !beforeAt.includes("|")) out.title = cleanText(beforeAt);
+    }
+  }
 
   // Location fallback chain when JSON-LD has none.
   if (!out.location) {

@@ -144,6 +144,7 @@ export async function POST(request: NextRequest) {
     let salaryFromUrl: string | null = null;
     let locationFromUrl: string | null = null;
     let typeFromUrl: string | null = null;
+    let titleFromUrl: string | null = null;
 
     if (url) {
       try {
@@ -153,15 +154,21 @@ export async function POST(request: NextRequest) {
           if (url.includes("linkedin.com")) {
             const detail = extractLinkedInJobDetail(htmlContent);
             if (!jobDescriptionText) jobDescriptionText = detail.description || undefined;
+            if (detail.title) titleFromUrl = detail.title;
             if (detail.employer_logo) employerLogoFromUrl = detail.employer_logo;
             if (detail.salary) salaryFromUrl = detail.salary;
             if (detail.location) locationFromUrl = detail.location;
             if (detail.type) typeFromUrl = detail.type;
-            console.log(`[analyze] LinkedIn extracted: logo=${!!employerLogoFromUrl}, salary=${salaryFromUrl || 'null'}, location=${locationFromUrl || 'null'}`);
+            console.log(`[analyze] LinkedIn extracted: title=${titleFromUrl || 'null'}, logo=${!!employerLogoFromUrl}, salary=${salaryFromUrl || 'null'}, location=${locationFromUrl || 'null'}`);
           } else {
             if (!jobDescriptionText) {
               jobDescriptionText = htmlToStructuredText(htmlContent);
               if (jobDescriptionText.length < 100) jobDescriptionText = undefined;
+            }
+            const pageTitle = htmlContent.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim();
+            if (pageTitle && !titleFromUrl) {
+              const firstPart = pageTitle.split(/\s*\|\s*|\s*-\s*/)[0]?.trim();
+              if (firstPart && firstPart.length > 2 && firstPart.length < 120) titleFromUrl = cleanText(firstPart);
             }
           }
         }
@@ -275,7 +282,7 @@ For "interviewProcess", extract the EXACT interview steps mentioned in the job d
 
     const job = {
       id: `uploaded-${Date.now()}`,
-      title: analysis.role || "Untitled Role",
+      title: titleFromUrl?.trim() || analysis.role || "Untitled Role",
       company: analysis.company || "Unknown Company",
       location: analysis.location || locationFromUrl || "",
       description: descParts.join("\n\n"),

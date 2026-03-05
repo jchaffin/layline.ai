@@ -113,7 +113,7 @@ function EditableField({
   );
 }
 
-const PAGE_H = 11 * 96;
+const PAGE_H_DEFAULT = 11 * 96;
 
 export default function LiveResumeEditor({
   resumeData,
@@ -123,16 +123,22 @@ export default function LiveResumeEditor({
 }: LiveResumeEditorProps) {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pageRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [pageHeight, setPageHeight] = useState(PAGE_H_DEFAULT);
   const data = resumeData;
   const dataRef = useRef(data);
   dataRef.current = data;
 
   useLayoutEffect(() => {
     const el = pageRef.current;
+    const viewport = viewportRef.current;
     if (!el) return;
+
+    const PAGE_H = viewport?.clientHeight ?? PAGE_H_DEFAULT;
+    setPageHeight(PAGE_H);
 
     // Reset previous page-break margins
     el.querySelectorAll<HTMLElement>("[data-pb]").forEach((child) => {
@@ -159,18 +165,28 @@ export default function LiveResumeEditor({
       }
     }
 
-    // Push individual items that straddle a page boundary to the next page
+    // Push individual items so role/title (e.g. "AI Associate") is not left on page 1
     const items = el.querySelectorAll<HTMLElement>(
       ".resume-exp-item, .resume-edu-item, .resume-sidebar-section"
     );
+
+    // Push if item header would land in bottom half of page (keep title on next page)
+    const TITLE_ORPHAN_PX = Math.floor(PAGE_H * 0.5);
 
     for (const item of items) {
       const rect = item.getBoundingClientRect();
       const top = rect.top - elTop;
       const bottom = top + rect.height;
       const pageEnd = (Math.floor(top / PAGE_H) + 1) * PAGE_H;
+      const spaceLeft = pageEnd - top;
 
-      if (top < pageEnd && bottom > pageEnd && item.offsetHeight < PAGE_H) {
+      // Item starts in bottom half of page: push so title appears on next page
+      if (spaceLeft > 0 && spaceLeft < TITLE_ORPHAN_PX) {
+        const push = spaceLeft;
+        item.style.marginTop = `${push}px`;
+        item.setAttribute("data-pb", "1");
+      } else if (top < pageEnd && bottom > pageEnd && item.offsetHeight < PAGE_H) {
+        // Straddles page and fits on one page: push whole item to next page
         const push = pageEnd - top;
         item.style.marginTop = `${push}px`;
         item.setAttribute("data-pb", "1");
@@ -224,34 +240,17 @@ export default function LiveResumeEditor({
   const c = data.contact || {};
 
   return (
-    <div className="relative" style={{ height: `${PAGE_H}px` }}>
+    <div className="relative flex-1 min-h-0 flex flex-col">
       <style dangerouslySetInnerHTML={{ __html: getTemplateCSS(templateId) }} />
 
-      {totalPages > 1 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-black/70 text-white text-xs font-medium px-3 py-1.5 rounded-full shadow-lg backdrop-blur-sm">
-          <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage <= 1}
-            className="p-0.5 rounded-full hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-          <span className="tabular-nums select-none">{currentPage} / {totalPages}</span>
-          <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage >= totalPages}
-            className="p-0.5 rounded-full hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      <div style={{ height: `${PAGE_H}px`, overflow: "hidden", position: "relative" }}>
+      <div
+        ref={viewportRef}
+        className="flex-1 min-h-0 overflow-hidden relative"
+      >
         <div
           style={{
             position: "absolute",
-            top: `-${(currentPage - 1) * PAGE_H}px`,
+            top: `-${(currentPage - 1) * pageHeight}px`,
             left: 0,
             right: 0,
           }}
@@ -260,7 +259,7 @@ export default function LiveResumeEditor({
             <div
               ref={pageRef}
               className="resume-page bg-white relative"
-              style={{ width: "8.5in", minHeight: `${PAGE_H}px`, boxSizing: "border-box" }}
+              style={{ width: "8.5in", minHeight: `${pageHeight}px`, boxSizing: "border-box" }}
             >
             {/* Left column */}
             <div className="resume-left">
@@ -406,6 +405,10 @@ export default function LiveResumeEditor({
                     <EditableField value={c.email || ""} onChange={(val) => updateContact("email", val)} tag="span" placeholder="Email" />
                   </div>
                 )}
+                <div className="resume-detail" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <Globe style={{ width: 12, height: 12, flexShrink: 0, color: "#2563eb" }} />
+                  <EditableField value={c.website || ""} onChange={(val) => updateContact("website", val)} tag="span" placeholder="Website URL" />
+                </div>
               </div>
 
               <div className="resume-sidebar-section">
@@ -447,6 +450,26 @@ export default function LiveResumeEditor({
         </div>
         </div>
       </div>
+
+      {totalPages > 1 && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-black/70 text-white text-xs font-medium px-3 py-1.5 rounded-full shadow-lg backdrop-blur-sm">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage <= 1}
+            className="p-0.5 rounded-full hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+          <span className="tabular-nums select-none">{currentPage} / {totalPages}</span>
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage >= totalPages}
+            className="p-0.5 rounded-full hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -6,7 +7,11 @@ import { db } from "@/lib/db";
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    const userId = (session?.user as any)?.id as string | undefined;
+    let userId = (session?.user as any)?.id as string | undefined;
+    if (!userId) {
+      const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+      userId = token?.sub ?? undefined;
+    }
 
     const body = await request.json();
     const { jobTitle, company, jobUrl, status, notes, location, salaryRange, description, analysis } = body;
@@ -37,10 +42,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    const userId = (session?.user as any)?.id as string | undefined;
+    let userId = (session?.user as any)?.id as string | undefined;
+    if (!userId) {
+      const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+      userId = token?.sub ?? undefined;
+    }
 
     const applications = await db.jobApplication.findMany({
       where: userId

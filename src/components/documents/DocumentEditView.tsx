@@ -294,7 +294,7 @@ export default function DocumentEditView({
                     ? { width: `${100 - splitPercent}%` }
                     : undefined
                 }
-                className={`overflow-auto ${viewMode === "preview" ? "flex-1" : ""}`}
+                className={`flex flex-col min-h-0 overflow-auto ${viewMode === "preview" ? "flex-1" : ""} ${viewMode === "split" ? "flex-1" : ""}`}
               >
                 {resumeData ? (
                   <LiveResumeEditor
