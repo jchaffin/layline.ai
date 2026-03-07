@@ -1,95 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { S3Client, ListObjectsV2Command, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
-
-// Initialize S3 client
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-  },
-});
+import { getRequiredSession, unauthorizedResponse } from '@/lib/api/auth';
+import {
+  assertResumeKeyOwnership,
+  deleteResumeObject,
+  listResumeObjects,
+  parseResumeStorageKey,
+  readResumeText,
+  toGcsUrl,
+} from '@/lib/resumeStorage';
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getRequiredSession(request);
+    const userId = session.user?.id;
+    if (!userId) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '10');
-    const prefix = searchParams.get('prefix') || 'tailored-resumes/';
+    const files = await listResumeObjects(`${userId}/`);
+    const tailoredFiles = files
+      .filter((file) => parseResumeStorageKey(file.name)?.type === 'tailored')
+      .slice(0, limit);
 
-    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-      return NextResponse.json({
-        resumes: [],
-        message: 'AWS S3 not configured - no stored resumes available'
-      });
-    }
-
-    // List objects from S3
-    const command = new ListObjectsV2Command({
-      Bucket: process.env.AWS_S3_BUCKET || 'interview-assistant-resumes',
-      Prefix: prefix,
-      MaxKeys: limit,
-    });
-
-    const response = await s3Client.send(command);
-    
-    if (!response.Contents) {
-      return NextResponse.json({ resumes: [] });
-    }
-
-    // Get metadata for each resume
-    const resumePromises = await Promise.all(
-      response.Contents.map(async (object) => {
-        try {
-          const getCommand = new GetObjectCommand({
-            Bucket: process.env.AWS_S3_BUCKET || 'interview-assistant-resumes',
-            Key: object.Key,
-          });
-          
-          const objectResponse = await s3Client.send(getCommand);
-          const body = await objectResponse.Body?.transformToString();
-          let data: Record<string, unknown> = {};
-
-          if (body) {
-            try {
-              data = JSON.parse(body) as Record<string, unknown>;
-            } catch (parseError) {
-              console.error('Invalid JSON in S3 object:', object.Key, 'Content:', body?.substring(0, 100));
-              return null;
-            }
+    const resumes = (
+      await Promise.all(
+        tailoredFiles.map(async (file) => {
+          try {
+            const body = await readResumeText(file.name);
+            const data = body ? (JSON.parse(body) as Record<string, unknown>) : {};
+            return {
+              key: file.name,
+              size: Number(file.metadata.size || 0),
+              lastModified: file.metadata.updated || file.metadata.timeCreated,
+              companyName: (data.companyName as string) || 'Unknown',
+              roleTitle: (data.roleTitle as string) || 'Unknown Role',
+              createdAt:
+                (data.createdAt as string) ||
+                file.metadata.updated ||
+                file.metadata.timeCreated,
+              s3Url: toGcsUrl(file.name),
+              metadata: {
+                hasOriginal: !!data.originalResume,
+                hasTailored: !!data.tailoredResume,
+                hasJobDescription: !!data.jobDescription,
+              },
+            };
+          } catch (error) {
+            console.error('Error processing resume object:', error);
+            return null;
           }
-
-          return {
-            key: object.Key,
-            size: object.Size,
-            lastModified: object.LastModified,
-            companyName: (data.companyName as string) || 'Unknown',
-            roleTitle: (data.roleTitle as string) || 'Unknown Role',
-            createdAt: data.createdAt,
-            s3Url: `s3://${process.env.AWS_S3_BUCKET || 'interview-assistant-resumes'}/${object.Key}`,
-            metadata: {
-              hasOriginal: !!data.originalResume,
-              hasTailored: !!data.tailoredResume,
-              hasJobDescription: !!data.jobDescription,
-            },
-          };
-        } catch (error) {
-          console.error('Error processing resume object:', error);
-          return null;
-        }
-      })
-    );
-
-    // Filter out null values (invalid resumes)
-    const resumes = resumePromises.filter(resume => resume !== null);
+        }),
+      )
+    ).filter((resume) => resume !== null);
 
     return NextResponse.json({
       resumes: resumes.sort((a, b) => 
         new Date(b.lastModified || 0).getTime() - new Date(a.lastModified || 0).getTime()
       ),
-      total: response.KeyCount || 0,
-      hasMore: response.IsTruncated || false,
+      total: resumes.length,
+      hasMore: false,
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "Authentication required") {
+      return unauthorizedResponse();
+    }
     console.error('Error listing resumes:', error);
     return NextResponse.json(
       { error: 'Failed to list resumes from S3' },
@@ -100,6 +74,10 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const session = await getRequiredSession(request);
+    const userId = session.user?.id;
+    if (!userId) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const key = searchParams.get('key');
 
@@ -110,26 +88,17 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-      return NextResponse.json(
-        { error: 'AWS S3 not configured' },
-        { status: 503 }
-      );
-    }
-
-    // Delete object from S3
-    const command = new DeleteObjectCommand({
-      Bucket: process.env.AWS_S3_BUCKET || 'interview-assistant-resumes',
-      Key: key,
-    });
-
-    await s3Client.send(command);
+    assertResumeKeyOwnership(key, userId);
+    await deleteResumeObject(key);
 
     return NextResponse.json({
       success: true,
       message: 'Resume deleted successfully',
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "Authentication required") {
+      return unauthorizedResponse();
+    }
     console.error('Error deleting resume:', error);
     return NextResponse.json(
       { error: 'Failed to delete resume' },

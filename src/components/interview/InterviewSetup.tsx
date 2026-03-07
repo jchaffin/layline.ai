@@ -96,7 +96,7 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
   const [researchPhase, setResearchPhase] = useState<"idle" | "loading" | "done">("idle");
   const [companyResearch, setCompanyResearch] = useState<string | null>(null);
 
-  const [resumeOptions, setResumeOptions] = useState<{ key: string; name: string; type: string }[]>([]);
+  const [resumeOptions, setResumeOptions] = useState<{ key: string; name: string; type: string; parsedKey?: string }[]>([]);
   const [selectedResumeKey, setSelectedResumeKey] = useState<string>("");
   const [selectedResumeSummary, setSelectedResumeSummary] = useState<string | null>(null);
   const [selectedResumeData, setSelectedResumeData] = useState<ParsedResumePreview | null>(null);
@@ -107,13 +107,14 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
       .then((r) => r.json())
       .then((data) => {
         const groups = data.groups || [];
-        const files: { key: string; name: string; type: string }[] = [];
+        const files: { key: string; name: string; type: string; parsedKey?: string }[] = [];
         for (const g of groups) {
           for (const v of g.versions || []) {
             files.push({
               key: v.key,
               name: v.type === "original" ? (g.originalName || v.label) : (v.label || "Tailored"),
               type: v.type || "original",
+              parsedKey: v.parsedKey,
             });
           }
         }
@@ -128,7 +129,8 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
     setSelectedResumeKey(key);
     setSelectedResumeSummary(null);
     setSelectedResumeData(null);
-    const isTailored = key.includes("tailored-resumes/");
+    const selectedOption = resumeOptions.find((option) => option.key === key);
+    const isTailored = selectedOption?.type === "tailored";
     try {
       let raw: any = null;
       if (isTailored) {
@@ -137,9 +139,8 @@ export default function InterviewSetup({ onStart }: InterviewSetupProps) {
           const json = await res.json();
           raw = json.tailoredResume || json;
         }
-      } else {
-        const parsedKey = key.replace("original-resumes/", "parsed-resumes/").replace(/\.[^.]+$/, "-parsed.json");
-        const res = await fetch(`/api/resume/parsed?action=get&key=${encodeURIComponent(parsedKey)}`);
+      } else if (selectedOption?.parsedKey) {
+        const res = await fetch(`/api/resume/parsed?action=get&key=${encodeURIComponent(selectedOption.parsedKey)}`);
         if (res.ok) raw = await res.json();
       }
       if (!raw || typeof raw !== "object") return;

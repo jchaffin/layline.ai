@@ -2,18 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import mammoth from "mammoth";
 import pdfParse from "@jchaffin/pdf-parse";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSessionFromRequest } from "@/lib/api/auth";
+import { ingestWorkExperienceResume } from "@/lib/knowledge/ingest";
+import {
+  buildOriginalResumeKey,
+  buildParsedResumeKey,
+  createResumeId,
+  createResumeVersionId,
+  saveResumeObject,
+  toGcsUrl,
+} from "@/lib/resumeStorage";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-});
-
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-  },
 });
 
 export async function POST(request: NextRequest) {
@@ -22,6 +23,7 @@ export async function POST(request: NextRequest) {
 
     let file: File | null = null;
     let textContent: string | null = null;
+    let requestedResumeId: string | null = null;
 
     const contentType = request.headers.get("content-type") || "";
 
@@ -29,9 +31,14 @@ export async function POST(request: NextRequest) {
       const formData = await request.formData();
       file = formData.get("file") as File;
       textContent = formData.get("textContent") as string;
+      const resumeIdValue = formData.get("resumeId");
+      requestedResumeId =
+        typeof resumeIdValue === "string" ? resumeIdValue : null;
     } else if (contentType.includes("application/json")) {
       const body = await request.json();
       textContent = body.textContent;
+      requestedResumeId =
+        typeof body.resumeId === "string" ? body.resumeId : null;
     } else {
       return NextResponse.json(
         {
@@ -359,61 +366,54 @@ Return JSON with this exact structure:
       console.log("Could not write debug file:", writeError);
     }
 
-    // Store original PDF in S3 if file is uploaded and AWS is configured
-    let s3Url = null;
+    const session = await getSessionFromRequest(request).catch(() => null);
+    const userId = session?.user?.id || null;
+    const resumeId =
+      typeof requestedResumeId === "string" && requestedResumeId.trim()
+        ? requestedResumeId.trim()
+        : createResumeId();
+    const versionId = createResumeVersionId();
+
+    // Store original and parsed artifacts in canonical GCS layout
+    let storageUrl = null;
     let originalFileKey = null;
+    let parsedFileKey = null;
 
-    if (
-      file &&
-      process.env.AWS_ACCESS_KEY_ID &&
-      process.env.AWS_SECRET_ACCESS_KEY
-    ) {
+    if (file && userId) {
       try {
-        const timestamp = Date.now();
-        const fileName = `original-resumes/${timestamp}-${file.name}`;
-        originalFileKey = fileName;
-
-        // Upload original file to S3
+        originalFileKey = buildOriginalResumeKey(userId, resumeId, versionId, file.name);
+        parsedFileKey = buildParsedResumeKey(userId, resumeId, versionId);
         const fileBuffer = await file.arrayBuffer();
-        const command = new PutObjectCommand({
-          Bucket: process.env.AWS_S3_BUCKET || "interview-assistant-resumes",
-          Key: fileName,
-          Body: new Uint8Array(fileBuffer),
-          ContentType: file.type,
-          Metadata: {
-            originalName: file.name,
+        await saveResumeObject({
+          key: originalFileKey,
+          body: Buffer.from(fileBuffer),
+          contentType: file.type || "application/octet-stream",
+          metadata: {
+            userId,
+            resumeId,
+            versionId,
+            versionType: "original",
+            fileName: file.name,
             uploadedAt: new Date().toISOString(),
-            parsedAt: timestamp.toString(),
           },
         });
-
-        await s3Client.send(command);
-        s3Url = `s3://${process.env.AWS_S3_BUCKET || "interview-assistant-resumes"}/${fileName}`;
-
-        console.log("Original resume uploaded to S3:", s3Url);
-
-        // Also save parsed data as JSON to S3
-        const parsedDataKey = `parsed-resumes/${timestamp}-${file.name.replace(/\.[^/.]+$/, "")}-parsed.json`;
-        const parsedDataCommand = new PutObjectCommand({
-          Bucket: process.env.AWS_S3_BUCKET || "interview-assistant-resumes",
-          Key: parsedDataKey,
-          Body: JSON.stringify(parsedData, null, 2),
-          ContentType: "application/json",
-          Metadata: {
-            originalFileName: file.name,
-            parsedAt: new Date().toISOString(),
-            originalKey: fileName,
-            resumeName: parsedData?.contact?.email || "unknown",
+        await saveResumeObject({
+          key: parsedFileKey,
+          body: JSON.stringify(parsedData, null, 2),
+          contentType: "application/json",
+          metadata: {
+            userId,
+            resumeId,
+            versionId,
+            versionType: "parsed",
+            originalKey: originalFileKey,
+            fileName: file.name,
+            uploadedAt: new Date().toISOString(),
           },
         });
-
-        await s3Client.send(parsedDataCommand);
-        console.log(
-          "Parsed resume data saved to S3:",
-          `s3://${process.env.AWS_S3_BUCKET || "interview-assistant-resumes"}/${parsedDataKey}`,
-        );
-      } catch (s3Error) {
-        console.warn("S3 upload failed, continuing without storage:", s3Error);
+        storageUrl = toGcsUrl(originalFileKey);
+      } catch (storageError) {
+        console.warn("Resume storage failed, continuing without storage:", storageError);
       }
     }
 
@@ -456,15 +456,40 @@ Return JSON with this exact structure:
       })) || [],
     };
 
+    let knowledgeIndexed = false;
+
+    try {
+      if (userId) {
+        await ingestWorkExperienceResume({
+          userId,
+          resumeId,
+          fileName: file?.name || "text-input",
+          fileContent: resumeText,
+          parsedData:
+            processedData && typeof processedData === "object"
+              ? (processedData as Record<string, unknown>)
+              : null,
+        });
+        knowledgeIndexed = true;
+      }
+    } catch (ingestError) {
+      console.warn("Work experience indexing skipped:", ingestError);
+    }
+
     return NextResponse.json({
       success: true,
       data: processedData,
       fileName: file?.name || "text-input",
       fileContent: resumeText,
       parsedData: processedData,
-      s3Url,
+      s3Url: storageUrl,
+      storageUrl,
       originalFileKey,
+      parsedFileKey,
+      resumeId,
+      versionId,
       saved: true,
+      knowledgeIndexed,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

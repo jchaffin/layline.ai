@@ -1,19 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { getSessionFromRequest } from '@/lib/api/auth';
+import {
+  buildTailoredResumeKey,
+  createResumeId,
+  createResumeVersionId,
+  parseResumeStorageKey,
+  saveResumeObject,
+  toGcsUrl,
+} from '@/lib/resumeStorage';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-});
-
-// Initialize S3 client
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-  },
 });
 
 export async function POST(request: NextRequest) {
@@ -98,43 +96,50 @@ Create a perfectly tailored version that maximizes match percentage while stayin
     // Generate resume document (simplified - could be enhanced with proper formatting)
     const resumeDocument = generateResumeDocument(tailoredData, companyName, roleTitle);
     
-    // Store in S3 if credentials are available
-    let s3Url = null;
-    if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+    const session = await getSessionFromRequest(request).catch(() => null);
+    const userId = session?.user?.id || null;
+    const parsedOriginal = typeof originalKey === 'string' ? parseResumeStorageKey(originalKey) : null;
+    const resumeId = parsedOriginal?.resumeId || createResumeId();
+    const versionId = createResumeVersionId();
+
+    let storageUrl = null;
+    let storageKey = null;
+    if (userId) {
       try {
-        const fileName = `tailored-resumes/${Date.now()}-${roleTitle?.replace(/\s+/g, '-') || 'resume'}.json`;
+        storageKey = buildTailoredResumeKey(userId, resumeId, versionId);
         
-        // Create comprehensive JSON object for S3 storage
-        const s3Data = {
+        const storedData = {
           companyName: companyName || 'Unknown Company',
           roleTitle: roleTitle || 'Unknown Role',
           createdAt: new Date().toISOString(),
           originalKey: originalKey || null,
+          resumeId,
+          versionId,
           originalResume: resumeData,
           tailoredResume: tailoredData,
           jobDescription: jobDescription,
           document: generateResumeDocument(tailoredData, companyName, roleTitle)
         };
-        
-        const jsonBuffer = Buffer.from(JSON.stringify(s3Data, null, 2));
-        
-        const command = new PutObjectCommand({
-          Bucket: process.env.AWS_S3_BUCKET || 'interview-assistant-resumes',
-          Key: fileName,
-          Body: jsonBuffer,
-          ContentType: 'application/json',
-          Metadata: {
+
+        await saveResumeObject({
+          key: storageKey,
+          body: JSON.stringify(storedData, null, 2),
+          contentType: 'application/json',
+          metadata: {
+            userId,
+            resumeId,
+            versionId,
+            versionType: 'tailored',
             company: companyName || 'unknown',
             role: roleTitle || 'unknown',
-            timestamp: Date.now().toString(),
-            ...(originalKey && { originalkey: originalKey }),
+            originalKey: originalKey || undefined,
+            label: roleTitle || 'Tailored Resume',
+            createdAt: storedData.createdAt,
           },
         });
-
-        await s3Client.send(command);
-        s3Url = `s3://${process.env.AWS_S3_BUCKET || 'interview-assistant-resumes'}/${fileName}`;
-      } catch (s3Error) {
-        console.warn('S3 storage failed, continuing without storage:', s3Error);
+        storageUrl = toGcsUrl(storageKey);
+      } catch (storageError) {
+        console.warn('Resume storage failed, continuing without storage:', storageError);
       }
     }
 
@@ -142,7 +147,11 @@ Create a perfectly tailored version that maximizes match percentage while stayin
       success: true,
       tailoredResume: tailoredData,
       document: resumeDocument,
-      s3Url,
+      s3Url: storageUrl,
+      storageUrl,
+      storageKey,
+      resumeId,
+      versionId,
       metadata: {
         companyName,
         roleTitle,

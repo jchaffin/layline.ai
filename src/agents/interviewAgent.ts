@@ -1,5 +1,6 @@
 import { createAgent, defineTool, type ToolDefinition } from "@jchaffin/voicekit";
 import type { InterviewMode, InterviewContext } from "@/types/interview";
+import { search_interview_materials } from "./tools";
 
 const end_interview = defineTool({
   name: "end_interview",
@@ -138,10 +139,15 @@ const review_code = defineTool({
   },
 });
 
-const baseTools = [end_interview, provide_feedback] as ToolDefinition[];
+const baseTools = [
+  end_interview,
+  provide_feedback,
+  search_interview_materials,
+] as ToolDefinition[];
 const technicalTools = [
   end_interview,
   provide_feedback,
+  search_interview_materials,
   present_coding_problem,
   review_code,
 ] as ToolDefinition[];
@@ -265,6 +271,7 @@ ${mode.focus}
 7. Be encouraging but honest. Real interviewers give signal, not just praise.
 8. NEVER reveal you are an AI. Stay in character throughout.
 9. Be conversational and natural. Real interviewers don't give speeches — they ask questions and listen.
+10. Use search_interview_materials when you need grounded algorithms, coding, or system-design material to shape a better question or follow-up.
 </rules>
 
 <question_style>

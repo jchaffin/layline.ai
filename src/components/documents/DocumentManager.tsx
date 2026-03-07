@@ -22,6 +22,9 @@ interface Version {
   label: string;
   company?: string;
   role?: string;
+  parsedKey?: string;
+  resumeId?: string;
+  versionId?: string;
   createdAt: string;
   size: number;
   type: "original" | "tailored";
@@ -37,6 +40,9 @@ interface ResumeGroup {
 
 interface FlatFile {
   key: string;
+  parsedKey?: string;
+  resumeId?: string;
+  versionId?: string;
   name: string;
   subtitle?: string;
   date: string;
@@ -59,6 +65,9 @@ function flattenGroups(groups: ResumeGroup[]): FlatFile[] {
     for (const v of group.versions) {
       files.push({
         key: v.key,
+        parsedKey: v.parsedKey,
+        resumeId: v.resumeId,
+        versionId: v.versionId,
         name:
           v.type === "original"
             ? group.originalName
@@ -115,12 +124,13 @@ export default function DocumentManager({
       if (result.success && result.data) {
         onFileUploaded?.(result.data);
         onNavigateToEdit?.({
-          id: result.s3Url || file.name,
+          id: result.originalFileKey || file.name,
           name: file.name,
           type: "original",
           uploadDate: new Date().toISOString(),
           size: file.size,
           data: result.data,
+          parsedKey: result.parsedFileKey,
         });
       }
       loadVersions();
@@ -158,14 +168,14 @@ export default function DocumentManager({
         }
       } catch {}
     } else {
-      const parsedKey = file.key
-        .replace("original-resumes/", "parsed-resumes/")
-        .replace(/\.[^.]+$/, "-parsed.json");
+      const parsedKey = file.parsedKey;
       try {
-        const res = await fetch(
-          `/api/resume/parsed?action=get&key=${encodeURIComponent(parsedKey)}`,
-        );
-        if (res.ok) data = await res.json();
+        if (parsedKey) {
+          const res = await fetch(
+            `/api/resume/parsed?action=get&key=${encodeURIComponent(parsedKey)}`,
+          );
+          if (res.ok) data = await res.json();
+        }
       } catch {}
     }
     onNavigateToEdit?.({
@@ -175,6 +185,7 @@ export default function DocumentManager({
       uploadDate: file.date,
       size: formatSize(file.size),
       data,
+      parsedKey: file.parsedKey,
     });
   };
 

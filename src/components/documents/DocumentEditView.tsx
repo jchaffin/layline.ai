@@ -50,9 +50,7 @@ export default function DocumentEditView({
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const savedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const saveKey = doc.id
-    ?.replace("original-resumes/", "parsed-resumes/")
-    .replace(/\.[^.]+$/, "-parsed.json");
+  const saveKey = doc.parsedKey;
 
   const flushSave = useCallback((data: any) => {
     if (!saveKey) return;

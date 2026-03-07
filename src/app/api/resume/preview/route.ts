@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-
-// Initialize S3 client
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-  },
-});
+import { getRequiredSession, unauthorizedResponse } from "@/lib/api/auth";
+import { assertResumeKeyOwnership, readResumeText } from "@/lib/resumeStorage";
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getRequiredSession(request);
+    const userId = session.user?.id;
+    if (!userId) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const key = searchParams.get("key");
 
@@ -22,21 +18,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-      return NextResponse.json(
-        { error: "AWS S3 not configured" },
-        { status: 503 },
-      );
-    }
-
-    // Get object from S3
-    const command = new GetObjectCommand({
-      Bucket: process.env.AWS_S3_BUCKET || "interview-assistant-resumes",
-      Key: key,
-    });
-
-    const response = await s3Client.send(command);
-    const body = await response.Body?.transformToString();
+    assertResumeKeyOwnership(key, userId);
+    const body = await readResumeText(key);
 
     if (!body) {
       return NextResponse.json(
@@ -92,6 +75,9 @@ export async function GET(request: NextRequest) {
       });
     }
   } catch (error) {
+    if (error instanceof Error && error.message === "Authentication required") {
+      return unauthorizedResponse();
+    }
     console.error("Error fetching resume preview:", error);
     return NextResponse.json(
       { error: "Failed to load resume preview" },

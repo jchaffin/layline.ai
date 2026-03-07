@@ -3,6 +3,16 @@
     {
       "path": "/api/cron/scrape-jobs",
       "schedule": "*/20 * * * *"
+    },
+    {
+      "path": "/api/cron/ingest",
+      "schedule": "0 4 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/cron/ingest/route.ts": {
+      "memory": 1024,
+      "maxDuration": 300
+    }
+  }
 }

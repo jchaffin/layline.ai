@@ -109,7 +109,7 @@ export function Navigation({
         </nav>
 
         <div className="border-t p-3 flex justify-center">
-          <LoginButton />
+          <LoginButton compact={isCollapsed} />
         </div>
       </aside>
 
@@ -135,6 +135,9 @@ export function Navigation({
             );
           })}
         </nav>
+        <div className="border-t p-2">
+          <LoginButton />
+        </div>
       </div>
     </>
   );

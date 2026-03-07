@@ -1,35 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { S3Client, ListObjectsV2Command, GetObjectCommand } from '@aws-sdk/client-s3';
-
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-  },
-});
+import { getRequiredSession, unauthorizedResponse } from '@/lib/api/auth';
+import {
+  assertResumeKeyOwnership,
+  listResumeObjects,
+  readResumeText,
+} from '@/lib/resumeStorage';
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getRequiredSession(request);
+    const userId = session.user?.id;
+    if (!userId) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
     const key = searchParams.get('key');
 
     if (action === 'list') {
-      // List all parsed resume files
-      const listCommand = new ListObjectsV2Command({
-        Bucket: process.env.AWS_S3_BUCKET || 'interview-assistant-resumes',
-        Prefix: 'parsed-resumes/',
-        MaxKeys: 50
-      });
-
-      const response = await s3Client.send(listCommand);
-      const parsedResumes = response.Contents?.map(obj => ({
-        key: obj.Key,
-        lastModified: obj.LastModified,
-        size: obj.Size,
-        fileName: obj.Key?.split('/').pop()
-      })) || [];
+      const files = await listResumeObjects(`${userId}/`);
+      const parsedResumes = files
+        .filter((file) => file.name.includes('/parsed/'))
+        .map((file) => ({
+          key: file.name,
+          lastModified: file.metadata.updated || file.metadata.timeCreated,
+          size: Number(file.metadata.size || 0),
+          fileName: file.name.split('/').pop(),
+        }));
 
       return NextResponse.json({
         parsedResumes,
@@ -38,14 +34,8 @@ export async function GET(request: NextRequest) {
     }
 
     if (action === 'get' && key) {
-      // Get specific parsed resume data
-      const getCommand = new GetObjectCommand({
-        Bucket: process.env.AWS_S3_BUCKET || 'interview-assistant-resumes',
-        Key: key
-      });
-
-      const response = await s3Client.send(getCommand);
-      const body = await response.Body?.transformToString();
+      assertResumeKeyOwnership(key, userId);
+      const body = await readResumeText(key);
       
       if (!body) {
         return NextResponse.json({ error: 'No data found' }, { status: 404 });
@@ -58,6 +48,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 
   } catch (error) {
+    if (error instanceof Error && error.message === "Authentication required") {
+      return unauthorizedResponse();
+    }
     console.error('Error accessing parsed resume data:', error);
     return NextResponse.json(
       { error: 'Failed to access parsed resume data' },

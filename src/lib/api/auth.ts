@@ -2,13 +2,21 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
+function decodeCookieValue(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function parseCookieHeader(cookieHeader: string | null): Record<string, string> {
   if (!cookieHeader) return {};
   return Object.fromEntries(
     cookieHeader.split(";").map((s) => {
       const i = s.indexOf("=");
       const name = i < 0 ? s.trim() : s.slice(0, i).trim();
-      const value = i < 0 ? "" : s.slice(i + 1).trim();
+      const value = i < 0 ? "" : decodeCookieValue(s.slice(i + 1).trim());
       return [name, value];
     })
   );

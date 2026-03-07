@@ -1,24 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { s3Client, S3_BUCKET } from "@/lib/api/s3";
+import { getRequiredSession, unauthorizedResponse } from "@/lib/api/auth";
+import { assertResumeKeyOwnership, saveResumeObject } from "@/lib/resumeStorage";
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getRequiredSession(request);
+    const userId = session.user?.id;
+    if (!userId) return unauthorizedResponse();
+
     const { key, data } = await request.json();
 
     if (!key || !data) {
       return NextResponse.json({ error: "key and data required" }, { status: 400 });
     }
 
-    const command = new PutObjectCommand({
-      Bucket: S3_BUCKET,
-      Key: key.startsWith("parsed-resumes/") ? key : `parsed-resumes/${key}`,
-      Body: JSON.stringify(data),
-      ContentType: "application/json",
-      Metadata: { updatedAt: new Date().toISOString() },
-    });
+    assertResumeKeyOwnership(key, userId);
 
-    await s3Client.send(command);
+    await saveResumeObject({
+      key,
+      body: JSON.stringify(data),
+      contentType: "application/json",
+      metadata: { updatedAt: new Date().toISOString() },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
