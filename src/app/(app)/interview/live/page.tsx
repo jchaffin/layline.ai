@@ -226,7 +226,7 @@ function LiveSession() {
           </div>
         </div>
 
-        {setupData?.mode === "technical" && (
+        {(setupData?.mode === "technical" || activeProblem) && (
           <div className="flex-1 flex flex-col min-w-[420px] min-h-0 border-l bg-muted/30">
             {activeProblem ? (
               <CodePanel ref={codePanelRef} problem={activeProblem} />

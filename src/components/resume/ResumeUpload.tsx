@@ -29,6 +29,19 @@ interface ParsedResume {
     responsibilities: string[];
     keywords: string[];
   }>;
+  projects?: Array<{
+    company: string;
+    role: string;
+    duration: string;
+    startDate?: Date;
+    endDate?: Date;
+    isCurrentRole?: boolean;
+    location?: string;
+    description?: string;
+    achievements: string[];
+    responsibilities: string[];
+    keywords: string[];
+  }>;
   education: Array<{
     institution: string;
     degree: string;
@@ -184,6 +197,7 @@ export default function ResumeUpload({
       summary: improvedData.summary || "",
       skills: improvedData.skills || [],
       experience: improvedData.experience || [],
+      projects: improvedData.projects || [],
       education: improvedData.education || [],
       contact: improvedData.contact || {},
       ats_score: improvedData.ats_score || "",
@@ -510,7 +524,7 @@ export default function ResumeUpload({
                           newExp[index] = { ...exp, description: e.target.value };
                           setEditableData({ ...editableData, experience: newExp });
                         }}
-                        placeholder="• Led development of new features for mobile app&#10;• Managed team of 5 developers across 3 projects&#10;• Improved application performance by 40%&#10;• Implemented CI/CD pipeline reducing deployment time by 60%"
+                        placeholder={"• Led development of new features for mobile app\n• Managed team of 5 developers across 3 projects\n• Improved application performance by 40%\n• Implemented CI/CD pipeline reducing deployment time by 60%"}
                         className="resize-none w-full h-20 max-h-32 overflow-y-auto"
                         rows={3}
                       />

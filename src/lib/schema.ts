@@ -40,6 +40,7 @@ export interface ParsedResume {
   summary: string;
   skills: string[];
   experience: ParsedResumeExperience[];
+  projects?: ParsedResumeExperience[];
   education: ParsedResumeEducation[];
   contact: ParsedResumeContact;
   ats_score: string;

@@ -24,6 +24,19 @@ interface ParsedResumeData {
     responsibilities?: string[];
     keywords?: string[];
   }>;
+  projects?: Array<{
+    company: string;
+    role: string;
+    duration?: string;
+    startDate?: Date;
+    endDate?: Date;
+    isCurrentRole?: boolean;
+    location?: string;
+    description?: string;
+    achievements?: string[];
+    responsibilities?: string[];
+    keywords?: string[];
+  }>;
   education?: Array<{
     institution: string;
     degree: string;
@@ -219,6 +232,43 @@ export default function StructuredResumePreview({ resumeData, title = "Resume Pr
                         ) : null;
                       })}
                     </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {resumeData.projects && resumeData.projects.length > 0 && (
+        <div>
+          <h4 className="font-semibold text-gray-900 mb-3">
+            Projects
+          </h4>
+          <div className="space-y-4">
+            {resumeData.projects.map((project, index) => (
+              <div
+                key={index}
+                className="border-l-2 border-emerald-200 pl-4 w-full"
+              >
+                <div className="w-full">
+                  <h5 className="font-medium text-gray-900 break-words">
+                    {project.role}
+                  </h5>
+                  {(project.company || project.duration) && (
+                    <p className="text-sm text-emerald-700 break-words">
+                      {[project.company, project.duration].filter(Boolean).join(" • ")}
+                    </p>
+                  )}
+                  {project.location && (
+                    <p className="text-xs text-gray-500 break-words">
+                      {project.location}
+                    </p>
+                  )}
+                </div>
+                {project.description && (
+                  <div className="text-sm text-gray-700 mt-2 whitespace-pre-line break-words leading-relaxed">
+                    {project.description}
                   </div>
                 )}
               </div>

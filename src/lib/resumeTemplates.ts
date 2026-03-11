@@ -34,6 +34,12 @@ const BASE_RESET = `
   .resume-page i, .resume-page em { font-style: italic; }
   .resume-page u { text-decoration: underline; }
   .resume-page s, .resume-page strike { text-decoration: line-through; }
+  /* Keep some breathing room above section headers, including after page breaks */
+  .resume-left > .resume-section + .resume-section { padding-top: 0.08in; }
+  /* Allow flex children to shrink so text wraps naturally */
+  .resume-exp-header .resume-exp-role { min-width: 0; }
+  .resume-edu-header .resume-edu-degree { min-width: 0; }
+  .resume-bullet-item > span:not(.resume-bullet) { min-width: 0; }
 `;
 
 export const TEMPLATES: ResumeTemplate[] = [
@@ -113,7 +119,7 @@ export const TEMPLATES: ResumeTemplate[] = [
     description: "Centered header with accent color band, two-column body",
     layout: "two-column",
     css: `${BASE_RESET}
-      .resume-page { font-family: 'Cambria', 'Georgia', serif; font-size: 10px; line-height: 1.45; color: #2d2d2d; background: white; width: 100%; min-height: 11in; padding: 0in; display: flex; flex-direction: column; }
+      .resume-page { font-family: 'Cambria', 'Georgia', serif; font-size: 10px; line-height: 1.45; color: #2d2d2d; background: white; width: 100%; min-height: 11in; padding: 0.35in 0 0; display: flex; flex-direction: column; }
       .resume-left { padding: 0.4in 0.6in; flex: 1; }
       .resume-right { display: none; }
       .resume-header { background: #1a365d; color: white; padding: 0.35in 0.6in; text-align: center; margin-bottom: 0; }
@@ -148,7 +154,7 @@ export const TEMPLATES: ResumeTemplate[] = [
     description: "Left sidebar with skills, main content right",
     layout: "sidebar-left",
     css: `${BASE_RESET}
-      .resume-page { font-family: 'Inter', -apple-system, sans-serif; font-size: 10px; line-height: 1.4; color: #333; background: white; width: 100%; min-height: 11in; padding: 0; display: flex; flex-direction: row-reverse; gap: 0; }
+      .resume-page { font-family: 'Inter', -apple-system, sans-serif; font-size: 10px; line-height: 1.4; color: #333; background: white; width: 100%; min-height: 11in; padding: 0.35in 0 0; display: flex; flex-direction: row-reverse; gap: 0; }
       .resume-left { flex: 7; padding: 0.5in 0.5in 0.5in 0.3in; }
       .resume-right { flex: 3; background: #1e293b; color: white; padding: 0.5in 0.25in; }
       .resume-header { margin-bottom: 0.25in; padding-bottom: 0.1in; border-bottom: 2px solid #e2e8f0; }
@@ -183,7 +189,7 @@ export const TEMPLATES: ResumeTemplate[] = [
     description: "Colored header band, skills sidebar, ATS-optimized",
     layout: "two-column",
     css: `${BASE_RESET}
-      .resume-page { font-family: 'Inter', -apple-system, sans-serif; font-size: 10px; line-height: 1.4; color: #333; background: white; width: 100%; min-height: 11in; padding: 0; display: flex; flex-direction: column; }
+      .resume-page { font-family: 'Inter', -apple-system, sans-serif; font-size: 10px; line-height: 1.4; color: #333; background: white; width: 100%; min-height: 11in; padding: 0.35in 0 0; display: flex; flex-direction: column; }
       .resume-left { padding: 0.3in 0.6in; }
       .resume-right { background: #f1f5f9; padding: 0.3in 0.6in; border-top: 1px solid #e2e8f0; }
       .resume-header { background: #dc2626; color: white; padding: 0.3in 0.6in; }
@@ -288,7 +294,7 @@ export const TEMPLATES: ResumeTemplate[] = [
     description: "Modern sans-serif, bold name, two-column with colored sidebar",
     layout: "two-column",
     css: `${BASE_RESET}
-      .resume-page { font-family: 'Inter', -apple-system, sans-serif; font-size: 10px; line-height: 1.4; color: #333; background: white; width: 100%; min-height: 11in; padding: 0; display: flex; gap: 0; }
+      .resume-page { font-family: 'Inter', -apple-system, sans-serif; font-size: 10px; line-height: 1.4; color: #333; background: white; width: 100%; min-height: 11in; padding: 0.35in 0 0; display: flex; gap: 0; }
       .resume-left { flex: 7; padding: 0.5in 0.4in 0.5in 0.5in; }
       .resume-right { flex: 3; background: #0f172a; color: #e2e8f0; padding: 0.5in 0.25in; }
       .resume-header { margin-bottom: 0.25in; }

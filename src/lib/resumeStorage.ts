@@ -122,6 +122,27 @@ export function assertResumeKeyOwnership(key: string, userId: string) {
   }
 }
 
+async function saveWithRetry(
+  fn: () => Promise<void>,
+  maxRetries = 3,
+): Promise<void> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      await fn();
+      return;
+    } catch (err: unknown) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const is429 = msg.includes("429") || msg.includes("rate limit");
+      if (!is429 || attempt === maxRetries) throw err;
+      const delay = Math.min(1000 * 2 ** attempt, 8000);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
 export async function saveResumeObject(params: {
   key: string;
   body: Buffer | string;
@@ -129,14 +150,16 @@ export async function saveResumeObject(params: {
   metadata?: Record<string, string | undefined>;
 }) {
   const { key, body, contentType, metadata } = params;
-  await bucket().file(key).save(body, {
-    resumable: false,
-    contentType,
-    metadata: {
-      metadata: Object.fromEntries(
-        Object.entries(metadata || {}).filter((entry): entry is [string, string] => Boolean(entry[1])),
-      ),
-    },
+  await saveWithRetry(async () => {
+    await bucket().file(key).save(body, {
+      resumable: false,
+      contentType,
+      metadata: {
+        metadata: Object.fromEntries(
+          Object.entries(metadata || {}).filter((entry): entry is [string, string] => Boolean(entry[1])),
+        ),
+      },
+    });
   });
 }
 

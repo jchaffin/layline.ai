@@ -49,6 +49,8 @@ export default function DocumentEditView({
   const pendingData = useRef<any>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const savedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const SAVE_DEBOUNCE_MS = 2500; // Avoid GCS rate limit (create/update/delete)
 
   const saveKey = doc.parsedKey;
 
@@ -75,16 +77,28 @@ export default function DocumentEditView({
       });
   }, [saveKey]);
 
-  useEffect(() => () => clearTimeout(savedTimer.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(savedTimer.current);
+      clearTimeout(debounceTimer.current);
+    },
+    []
+  );
 
-  const handleDataChange = useCallback((newData: any) => {
-    setResumeData(newData);
-    if (savingRef.current) {
-      pendingData.current = newData;
-    } else {
-      flushSave(newData);
-    }
-  }, [flushSave]);
+  const handleDataChange = useCallback(
+    (newData: any) => {
+      setResumeData(newData);
+      clearTimeout(debounceTimer.current);
+      debounceTimer.current = setTimeout(() => {
+        if (savingRef.current) {
+          pendingData.current = newData;
+        } else {
+          flushSave(newData);
+        }
+      }, SAVE_DEBOUNCE_MS);
+    },
+    [flushSave]
+  );
 
   const handleSave = useCallback(() => {
     onSave(resumeData);
@@ -173,9 +187,11 @@ export default function DocumentEditView({
     </div>
   );
 
+  const NAVBAR_H = 48; // h-12
+
   return (
     <div className={`fixed top-0 right-0 bottom-0 z-40 bg-muted flex flex-col transition-[left] duration-200 ${sidebarVisible ? "lg:left-56" : "left-0"}`}>
-      <div className="bg-background border-b px-4 h-12 flex items-center shrink-0">
+      <div className="absolute top-0 left-0 right-0 z-10 bg-background border-b px-4 h-12 flex items-center shrink-0">
         <div className="flex items-center gap-2 min-w-0 shrink-0">
           <button onClick={() => onToggleSidebar?.()} className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" title="Show navigation">
             <LayoutGrid className="w-4 h-4" />
@@ -247,8 +263,8 @@ export default function DocumentEditView({
         </div>
       </div>
 
-      {/* Content */}
-      <div ref={containerRef} className="flex flex-1 min-h-0">
+      {/* Content — extends under navbar, padding compensates */}
+      <div ref={containerRef} className="flex flex-1 min-h-0 pt-12">
         {activeFeature === "customize" ? (
           <div className="flex-1">
             <TemplatePicker

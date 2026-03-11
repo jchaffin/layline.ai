@@ -20,6 +20,14 @@ function stripBlockTags(html: string): string {
     .replace(/<\/?(div|p|ul|ol|li)[^>]*>/gi, "");
 }
 
+function htmlToPlainText(html: string): string {
+  return stripBlockTags(html)
+    .replace(/&nbsp;/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/\u00a0/g, " ")
+    .trim();
+}
+
 function parseBullets(desc: string): string[] {
   if (!desc || !desc.trim()) return [];
   const isHtml = /<[a-z][\s\S]*>/i.test(desc);
@@ -56,6 +64,7 @@ function EditableField({
   tag: Tag = "div",
   placeholder,
   multiline,
+  style,
 }: {
   value: string;
   onChange: (val: string) => void;
@@ -63,6 +72,7 @@ function EditableField({
   tag?: "div" | "span";
   placeholder?: string;
   multiline?: boolean;
+  style?: React.CSSProperties;
 }) {
   const ref = useRef<HTMLElement>(null);
   const lastValue = useRef(value);
@@ -81,12 +91,14 @@ function EditableField({
   }, []);
 
   const handleInput = useCallback(() => {
-    const text = ref.current?.textContent || "";
+    const text = multiline
+      ? (ref.current?.innerText || "")
+      : (ref.current?.textContent || "");
     if (text !== lastValue.current) {
       lastValue.current = text;
       onChange(text);
     }
-  }, [onChange]);
+  }, [multiline, onChange]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -107,6 +119,7 @@ function EditableField({
       onBlur={handleInput}
       onKeyDown={handleKeyDown}
       className={className}
+      style={style}
       data-placeholder={placeholder}
       spellCheck
     />
@@ -114,6 +127,11 @@ function EditableField({
 }
 
 const PAGE_H_DEFAULT = 11 * 96;
+const EDITOR_TOP_BAR_H = 48;
+const PAGE_CANVAS_PADDING = 24;
+const PAGE_TOP_CANVAS_PADDING = 40;
+const PAGE_BREAK_BOTTOM_MARGIN = 24;
+const PAGE_BREAK_TOP_MARGIN = 24;
 
 export default function LiveResumeEditor({
   resumeData,
@@ -137,7 +155,7 @@ export default function LiveResumeEditor({
     const viewport = viewportRef.current;
     if (!el) return;
 
-    const PAGE_H = viewport?.clientHeight ?? PAGE_H_DEFAULT;
+    const PAGE_H = PAGE_H_DEFAULT;
     setPageHeight(PAGE_H);
 
     // Reset previous page-break margins
@@ -146,50 +164,50 @@ export default function LiveResumeEditor({
       child.removeAttribute("data-pb");
     });
 
-    const elTop = el.getBoundingClientRect().top;
+    // Push items only when they straddle a page boundary and the push is small
+    // (avoid creating giant gaps — skip if push would be > 200px)
+    const items = el.querySelectorAll<HTMLElement>(
+      ".resume-exp-item, .resume-edu-item"
+    );
 
-    // Push section titles near the bottom of a page to the next page
-    // so they don't get orphaned without their content
-    const sections = el.querySelectorAll<HTMLElement>(".resume-section");
-    for (const section of sections) {
-      const rect = section.getBoundingClientRect();
-      const top = rect.top - elTop;
-      const bottom = top + rect.height;
+    for (const item of items) {
+      const top = item.offsetTop;
+      const bottom = top + item.offsetHeight;
       const pageEnd = (Math.floor(top / PAGE_H) + 1) * PAGE_H;
-      const spaceLeft = pageEnd - top;
+      const breakThreshold = pageEnd - PAGE_BREAK_BOTTOM_MARGIN;
+      const nextPageStart = pageEnd + PAGE_BREAK_TOP_MARGIN;
+      const push = nextPageStart - top;
 
-      // If section starts in last 200px of page and crosses into next, push it
-      if (spaceLeft > 0 && spaceLeft < 200 && bottom > pageEnd) {
-        section.style.marginTop = `${spaceLeft}px`;
-        section.setAttribute("data-pb", "1");
+      // Keep content away from the break line so each page gets breathing room.
+      if (
+        top < breakThreshold &&
+        bottom > breakThreshold &&
+        item.offsetHeight < PAGE_H - PAGE_BREAK_TOP_MARGIN &&
+        push < 260
+      ) {
+        item.style.marginTop = `${push}px`;
+        item.setAttribute("data-pb", "1");
       }
     }
 
-    // Push individual items so role/title (e.g. "AI Associate") is not left on page 1
-    const items = el.querySelectorAll<HTMLElement>(
-      ".resume-exp-item, .resume-edu-item, .resume-sidebar-section"
-    );
-
-    // Push if item header would land in bottom half of page (keep title on next page)
-    const TITLE_ORPHAN_PX = Math.floor(PAGE_H * 0.5);
-
-    for (const item of items) {
-      const rect = item.getBoundingClientRect();
-      const top = rect.top - elTop;
-      const bottom = top + rect.height;
+    // Push bullet points that cross a page boundary so the entire bullet
+    // moves to the next page instead of splitting across pages.
+    const bullets = el.querySelectorAll<HTMLElement>(".resume-bullet-item");
+    for (const bullet of bullets) {
+      const top = bullet.offsetTop;
+      const bottom = top + bullet.offsetHeight;
       const pageEnd = (Math.floor(top / PAGE_H) + 1) * PAGE_H;
-      const spaceLeft = pageEnd - top;
+      const nextPageStart = pageEnd + PAGE_BREAK_TOP_MARGIN;
+      const push = nextPageStart - top;
 
-      // Item starts in bottom half of page: push so title appears on next page
-      if (spaceLeft > 0 && spaceLeft < TITLE_ORPHAN_PX) {
-        const push = spaceLeft;
-        item.style.marginTop = `${push}px`;
-        item.setAttribute("data-pb", "1");
-      } else if (top < pageEnd && bottom > pageEnd && item.offsetHeight < PAGE_H) {
-        // Straddles page and fits on one page: push whole item to next page
-        const push = pageEnd - top;
-        item.style.marginTop = `${push}px`;
-        item.setAttribute("data-pb", "1");
+      if (
+        top < pageEnd &&
+        bottom > pageEnd &&
+        bullet.offsetHeight < PAGE_H - PAGE_BREAK_TOP_MARGIN &&
+        push < 320
+      ) {
+        bullet.style.marginTop = `${push}px`;
+        bullet.setAttribute("data-pb", "1");
       }
     }
 
@@ -219,11 +237,71 @@ export default function LiveResumeEditor({
     [update],
   );
 
+  const updateJobTitle = useCallback(
+    (val: string) => {
+      const nextValue = val || undefined;
+      update({
+        jobTitle: nextValue,
+        contact: {
+          ...dataRef.current.contact,
+          title: nextValue,
+        },
+      });
+    },
+    [update],
+  );
+
   const updateExperience = useCallback(
     (index: number, patch: Partial<ResumeExperience>) => {
       const exps = [...(dataRef.current.experience || [])];
       exps[index] = { ...exps[index], ...patch };
       update({ experience: exps });
+    },
+    [update],
+  );
+
+  const updateProject = useCallback(
+    (index: number, patch: Partial<ResumeExperience>) => {
+      const projects = [...(dataRef.current.projects || [])];
+      projects[index] = { ...projects[index], ...patch };
+      update({ projects });
+    },
+    [update],
+  );
+
+  const updateDescriptionBullet = useCallback(
+    (
+      type: "experience" | "project",
+      itemIndex: number,
+      bulletIndex: number,
+      val: string,
+    ) => {
+      const currentItems =
+        type === "experience"
+          ? [...(dataRef.current.experience || [])]
+          : [...(dataRef.current.projects || [])];
+      const currentItem = currentItems[itemIndex];
+      if (!currentItem) return;
+
+      const bullets = parseBullets(currentItem.description || "").map((line) =>
+        htmlToPlainText(line),
+      );
+      if (bulletIndex >= bullets.length) return;
+
+      if (val.trim()) {
+        bullets[bulletIndex] = val.trim();
+      } else {
+        bullets.splice(bulletIndex, 1);
+      }
+
+      const description = bullets.map((line) => `- ${line}`).join("\n");
+      currentItems[itemIndex] = { ...currentItem, description };
+
+      if (type === "experience") {
+        update({ experience: currentItems });
+      } else {
+        update({ projects: currentItems });
+      }
     },
     [update],
   );
@@ -240,12 +318,18 @@ export default function LiveResumeEditor({
   const c = data.contact || {};
 
   return (
-    <div className="relative flex-1 min-h-0 flex flex-col">
+    <div className="group relative flex-1 min-h-0 flex flex-col">
       <style dangerouslySetInnerHTML={{ __html: getTemplateCSS(templateId) }} />
 
       <div
         ref={viewportRef}
         className="flex-1 min-h-0 overflow-hidden relative"
+        style={{
+          paddingTop: `${EDITOR_TOP_BAR_H + PAGE_TOP_CANVAS_PADDING}px`,
+          paddingRight: `${PAGE_CANVAS_PADDING}px`,
+          paddingBottom: `${PAGE_CANVAS_PADDING}px`,
+          paddingLeft: `${PAGE_CANVAS_PADDING}px`,
+        }}
       >
         <div
           style={{
@@ -259,7 +343,7 @@ export default function LiveResumeEditor({
             <div
               ref={pageRef}
               className="resume-page bg-white relative"
-              style={{ width: "8.5in", minHeight: `${pageHeight}px`, boxSizing: "border-box" }}
+              style={{ width: "8.5in", minHeight: `${PAGE_H_DEFAULT}px`, boxSizing: "border-box" }}
             >
             {/* Left column */}
             <div className="resume-left">
@@ -270,10 +354,10 @@ export default function LiveResumeEditor({
                   className="resume-name"
                   placeholder="Your Name"
                 />
-                {data.jobTitle !== undefined && (
+                {(data.jobTitle !== undefined || c.title !== undefined) && (
                   <EditableField
-                    value={data.jobTitle || ""}
-                    onChange={(val) => update({ jobTitle: val || undefined })}
+                    value={data.jobTitle || c.title || ""}
+                    onChange={updateJobTitle}
                     className="resume-title"
                     placeholder="Job Title (optional)"
                   />
@@ -282,9 +366,13 @@ export default function LiveResumeEditor({
 
               <div className="resume-section">
                 <div className="resume-section-title">Professional Summary</div>
-                <div
+                <EditableField
+                  value={htmlToPlainText(data.summary || "")}
+                  onChange={(val) => update({ summary: val })}
+                  multiline
                   className="resume-summary"
-                  dangerouslySetInnerHTML={{ __html: data.summary || "" }}
+                  placeholder="Write a professional summary"
+                  style={{ whiteSpace: "pre-wrap" } as any}
                 />
               </div>
 
@@ -336,7 +424,84 @@ export default function LiveResumeEditor({
                         {parseBullets(exp.description || "").map((line, li) => (
                           <div key={li} className="resume-bullet-item">
                             <span className="resume-bullet">•</span>
-                            <span dangerouslySetInnerHTML={{ __html: line }} />
+                            <EditableField
+                              value={htmlToPlainText(line)}
+                              onChange={(val) =>
+                                updateDescriptionBullet("experience", i, li, val)
+                              }
+                              tag="span"
+                              className="flex-1"
+                              placeholder="Bullet point"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {data.projects && data.projects.length > 0 && (
+                <div className="resume-section">
+                  <div className="resume-section-title">Projects</div>
+                  {data.projects.map((project, i) => (
+                    <div key={i} className="resume-project-item resume-exp-item">
+                      <div className="resume-exp-header">
+                        <EditableField
+                          value={project.company || ""}
+                          onChange={(val) => updateProject(i, { company: val })}
+                          className="resume-exp-role"
+                          placeholder="Project Name"
+                        />
+                        {(project.startDate || project.endDate || project.isCurrentRole) && (
+                          <span className="resume-exp-duration" style={{ display: "flex", gap: 4 }}>
+                            <EditableField
+                              value={formatDate(project.startDate)}
+                              onChange={(val) => {
+                                const d = new Date(val);
+                                if (!isNaN(d.getTime())) updateProject(i, { startDate: d.toISOString() });
+                              }}
+                              tag="span"
+                              placeholder="Start"
+                            />
+                            <span>—</span>
+                            <EditableField
+                              value={project.isCurrentRole ? "Present" : formatDate(project.endDate)}
+                              onChange={(val) => {
+                                if (val.toLowerCase() === "present") {
+                                  updateProject(i, { isCurrentRole: true, endDate: undefined });
+                                } else {
+                                  const d = new Date(val);
+                                  if (!isNaN(d.getTime())) updateProject(i, { endDate: d.toISOString(), isCurrentRole: false });
+                                }
+                              }}
+                              tag="span"
+                              placeholder="End"
+                            />
+                          </span>
+                        )}
+                      </div>
+                      {project.role !== undefined && (
+                        <EditableField
+                          value={project.role || ""}
+                          onChange={(val) => updateProject(i, { role: val })}
+                          className="resume-exp-company"
+                          placeholder=""
+                        />
+                      )}
+                      <div className="resume-exp-desc">
+                        {parseBullets(project.description || "").map((line, li) => (
+                          <div key={li} className="resume-bullet-item">
+                            <span className="resume-bullet">•</span>
+                            <EditableField
+                              value={htmlToPlainText(line)}
+                              onChange={(val) =>
+                                updateDescriptionBullet("project", i, li, val)
+                              }
+                              tag="span"
+                              className="flex-1"
+                              placeholder="Bullet point"
+                            />
                           </div>
                         ))}
                       </div>
@@ -452,7 +617,7 @@ export default function LiveResumeEditor({
       </div>
 
       {totalPages > 1 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-black/70 text-white text-xs font-medium px-3 py-1.5 rounded-full shadow-lg backdrop-blur-sm">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-black/70 text-white text-xs font-medium px-3 py-1.5 rounded-full shadow-lg backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
           <button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage <= 1}

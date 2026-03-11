@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { sendPasswordResetEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
     });
 
     const resetUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/reset-password?token=${token}`;
-    console.log(`[Password Reset] ${trimmedEmail}: ${resetUrl}`);
+    await sendPasswordResetEmail(trimmedEmail, resetUrl);
 
     return NextResponse.json({ success: true });
   } catch (error) {

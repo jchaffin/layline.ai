@@ -16,9 +16,10 @@ import { LogIn, LogOut, User, Settings } from "lucide-react";
 
 interface LoginButtonProps {
   compact?: boolean;
+  hideSignOut?: boolean;
 }
 
-export default function LoginButton({ compact = false }: LoginButtonProps) {
+export default function LoginButton({ compact = false, hideSignOut = false }: LoginButtonProps) {
   const { data: session, status } = useSession();
 
   if (status === "loading") {
@@ -73,7 +74,7 @@ export default function LoginButton({ compact = false }: LoginButtonProps) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        {!compact && (
+        {!compact && !hideSignOut && (
           <Button
             variant="outline"
             size="sm"

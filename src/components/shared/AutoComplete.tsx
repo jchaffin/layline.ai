@@ -192,19 +192,19 @@ export function GooglePlacesAutocomplete({
         onBlur={handleBlur}
         placeholder={isGoogleLoaded ? placeholder : "Loading location service..."}
         disabled={disabled || !isGoogleLoaded}
-        className={cn("w-full", className)}
+        className={cn("w-full !bg-white text-gray-900", className)}
         autoComplete="off"
       />
       
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute z-[100] w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
+        <div className="absolute z-[100] w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
           {suggestions.map((suggestion, index) => (
             <div
               key={suggestion.place_id}
               className={cn(
-                "px-4 py-2 cursor-pointer text-sm text-black dark:text-white",
-                "hover:bg-blue-50 dark:hover:bg-blue-900 border-b border-gray-100 dark:border-gray-700 last:border-b-0",
-                selectedIndex === index && "bg-blue-100 dark:bg-blue-800"
+                "px-4 py-2 cursor-pointer text-sm text-black bg-white",
+                "hover:bg-blue-50 border-b border-gray-100 last:border-b-0",
+                selectedIndex === index && "bg-blue-100"
               )}
               onClick={() => handleSuggestionClick(suggestion)}
             >
@@ -322,7 +322,7 @@ export function GoogleMapsAutocomplete({
           value={value}
           onChange={handleInputChange}
           placeholder={placeholder}
-          className={cn("enhanced-form-field", className)}
+          className={cn("enhanced-form-field !bg-white text-gray-900", className)}
           id={id}
           onFocus={onFocus}
           onKeyDown={handleKeyDown}
@@ -337,7 +337,7 @@ export function GoogleMapsAutocomplete({
               <div
               key={suggestion}
               className={cn(
-                  "px-3 py-2 cursor-pointer text-sm hover:bg-gray-50",
+                  "px-3 py-2 cursor-pointer text-sm bg-white hover:bg-gray-50",
                   index === selectedIndex && "bg-blue-50 text-blue-700"
               )}
               onMouseDown={(e) => e.preventDefault()} // Prevent input blur

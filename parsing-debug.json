@@ -1,0 +1,115 @@
+{
+  "timestamp": "2026-03-07T02:01:36.055Z",
+  "fileName": "CHAFFIN-RESUME.pdf",
+  "extractedTextLength": 5559,
+  "extractedTextPreview": "JACOB CHAFFIN SENIOR ENGINEER Beverly Hills 90210, United States | jchaffin57@gmail.co | 6503803288 | LinkedIn PROFILE Full-stack engineer with 7+ years building and operating production real-time and applied AI systems. Experience designing K8s-based GPU inference platforms and low-latency streaming services using LiveKit and WebRTC, and delivering end-to-end APIs and product features with strong observability and CI/CD. Scaled voice and conversational infrastructure to 6M+ users while maintaining sub-200 ms conversational latency and 99.9% uptime. Skilled in Python, Node.js/TypeScript, Next.js/React, and productionizing model-backed services. PROFESSIONAL EXPERIENCE Senior Fullstack Engineer, StudyFetch Beverly Hills, CA 2025 to 2026 Infrastructural Ownership: Architected and owned the real-time voice call and conversational avatar infrastructure for Spark.E and TutorMe, scaling the systems to support 6M+ users and a $11.5M Series A. Real-Time Agent Orchestration: Engineered a LiveKi",
+  "parsedData": {
+    "summary": "Full-stack engineer with 7+ years building and operating production real-time and applied AI systems. Experience designing K8s-based GPU inference platforms and low-latency streaming services using LiveKit and WebRTC, and delivering end-to-end APIs and product features with strong observability and CI/CD. Scaled voice and conversational infrastructure to 6M+ users while maintaining sub-200 ms conversational latency and 99.9% uptime. Skilled in Python, Node.js/TypeScript, Next.js/React, and productionizing model-backed services.",
+    "skills": [
+      "Full-stack development",
+      "K8s-based GPU inference platforms",
+      "Low-latency streaming services",
+      "LiveKit",
+      "WebRTC",
+      "APIs",
+      "CI/CD",
+      "Python",
+      "Node.js",
+      "TypeScript",
+      "Next.js",
+      "React",
+      "Productionizing model-backed services"
+    ],
+    "experience": [
+      {
+        "company": "StudyFetch",
+        "role": "Senior Fullstack Engineer",
+        "startDate": "2025",
+        "endDate": "2026",
+        "duration": "2025 to 2026",
+        "location": "Beverly Hills, CA",
+        "description": "- Architected and owned the real-time voice call and conversational avatar infrastructure for Spark.E and TutorMe, scaling the systems to support 6M+ users and a $11.5M Series A.\n- Engineered a LiveKit-based agent over WebRTC to handle synchronized live audio, video, and the Spark.E avatar s interactive state, achieving sub-100ms conversational latency.\n- Developed a custom LiveKit DataChannel pipeline to inject study-set context and session state into the LLM, ensuring the avatar s responses were grounded in assigned materials.\n- Designed and deployed a Node.js authentication and token service on GCP utilizing JWT/LiveKit access tokens and Twilio SMS verification for high-concurrency access.\n- Implemented a Kafka-driven ELO feedback pipeline to analyze session data in real-time and dynamically adapt student learning paths based on performance metrics.\n- Managed the end-to-end voice session lifecycle and connection stability, ensuring 99.9% uptime during massive global traffic spikes.",
+        "keywords": [
+          "Real-time voice call",
+          "Conversational avatar",
+          "LiveKit",
+          "WebRTC",
+          "Node.js",
+          "GCP",
+          "JWT",
+          "Twilio SMS",
+          "Kafka",
+          "ELO feedback"
+        ],
+        "isCurrentRole": false
+      },
+      {
+        "company": "Uniphore",
+        "role": "Software Engineer",
+        "startDate": "Jun 2021",
+        "endDate": "Oct 2024",
+        "duration": "Jun 2021 to Oct 2024",
+        "location": "",
+        "description": "- Built and operated production backend services for conversational AI, shipping low-latency APIs and streaming interfaces used by voice workflows.\n- Owned deployment automation for model-backed services, including CI/CD, environment promotion, canary-style rollouts, and reproducible builds across multiple environments.\n- Implemented observability for real-time systems (structured logging, metrics, tracing, alerting), reducing time-to-diagnosis for latency regressions and incident response.\n- Integrated speech and language components into stable production pipelines, evolving systems from classic NLU patterns toward LLM-backed orchestration where it improved product outcomes.\n- Designed service boundaries and data contracts for multi-tenant operation, with attention to reliability under concurrent traffic and failure-mode handling.\n- Built internal tooling to speed iteration (evaluation harnesses, replay workflows, regression checks), improving confidence when shipping changes to live traffic.\n- Partnered cross-functionally with product and applied teams to translate model behavior into deployable, measurable services, and to close gaps discovered in production.",
+        "keywords": [
+          "Conversational AI",
+          "Low-latency APIs",
+          "CI/CD",
+          "Real-time systems",
+          "Observability",
+          "NLU patterns",
+          "LLM-backed orchestration"
+        ],
+        "isCurrentRole": false
+      },
+      {
+        "company": "Wave Computing",
+        "role": "AI Associate",
+        "startDate": "Jun 2018",
+        "endDate": "2020",
+        "duration": "Jun 2018 to 2020",
+        "location": "Campbell, CA",
+        "description": "- Built custom TensorFlow ops to simulate neural network execution on the DPU Compiler, enabling early validation of operator behavior and alignment with hardware constraints.\n- Developed and optimized neural networks for audio and vision classification using PyTorch.\n- Designed and maintained an interactive visualization tool for error tracing on Wave's proprietary DPU-based compiler.\n- Developed full-stack admin tools with Node.js, React, and GraphQL for secure login and data transfer to AWS S3, deployed via Docker containers.\n- Reduced API payload size by 40% and streamlined file management workflows.",
+        "keywords": [
+          "TensorFlow ops",
+          "DPU Compiler",
+          "PyTorch",
+          "Neural networks",
+          "Node.js",
+          "React",
+          "GraphQL",
+          "AWS S3"
+        ],
+        "isCurrentRole": false
+      }
+    ],
+    "education": [
+      {
+        "institution": "University of California Los Angeles",
+        "degree": "BS",
+        "field": "Linguistics and Computer Science",
+        "year": "2020",
+        "gpa": "",
+        "honors": ""
+      }
+    ],
+    "contact": {
+      "name": "Jacob Chaffin",
+      "firstName": "Jacob",
+      "lastName": "Chaffin",
+      "email": "jchaffin57@gmail.co",
+      "phone": "6503803288",
+      "location": "Beverly Hills 90210, United States",
+      "linkedin": "LinkedIn PROFILE",
+      "github": "Github",
+      "website": "Website"
+    },
+    "ats_score": "85",
+    "ats_recommendations": [
+      "Ensure all acronyms are expanded on first use.",
+      "Add specific section headers like 'Projects' to improve ATS parsing.",
+      "Ensure contact information is consistently formatted to improve extraction."
+    ]
+  },
+  "rawTextSample": "JACOB CHAFFIN SENIOR ENGINEER Beverly Hills 90210, United States | jchaffin57@gmail.co | 6503803288 | LinkedIn PROFILE Full-stack engineer with 7+ years building and operating production real-time and applied AI systems. Experience designing K8s-based GPU inference platforms and low-latency streaming services using LiveKit and WebRTC, and delivering end-to-end APIs and product features with strong observability and CI/CD. Scaled voice and conversational infrastructure to 6M+ users while maintaining sub-200 ms conversational latency and 99.9% uptime. Skilled in Python, Node.js/TypeScript, Next.js/React, and productionizing model-backed services. PROFESSIONAL EXPERIENCE Senior Fullstack Engineer, StudyFetch Beverly Hills, CA 2025 to 2026 Infrastructural Ownership: Architected and owned the real-time voice call and conversational avatar infrastructure for Spark.E and TutorMe, scaling the systems to support 6M+ users and a $11.5M Series A. Real-Time Agent Orchestration: Engineered a LiveKit-based agent over WebRTC to handle synchronized live audio, video, and the Spark.E avatar s interactive state, achieving sub-100ms conversational latency. Contextual Grounding: Developed a custom LiveKit DataChannel pipeline to inject study-set context and session state into the LLM, ensuring the avatar s responses were grounded in assigned materials. Secure Cloud Architecture: Designed and deployed a Node.js authentication and token service on GCP utilizing JWT/LiveKit access tokens and Twilio SMS verification for high-concurrency access. Data-Driven Progression: Implemented a Kafka-driven ELO feedback pipeline to analyze session data in real-time and dynamically adapt student learning paths based on performance metrics. Infrastructure Reliability: Managed the end-to-end voice session lifecycle and connection stability, ensuring 99.9% uptime during massive global traffic spikes. Software Engineer, UniphoreJun 2021 to Oct 2024 Built and operated production backend services for convers"
+}

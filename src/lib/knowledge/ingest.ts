@@ -65,6 +65,7 @@ function buildResumeKnowledgeText(
   const summary = parsed && typeof parsed.summary === "string" ? parsed.summary : "";
   const skills = parsed && Array.isArray(parsed.skills) ? parsed.skills : [];
   const experience = parsed && Array.isArray(parsed.experience) ? parsed.experience : [];
+  const projects = parsed && Array.isArray(parsed.projects) ? parsed.projects : [];
 
   if (summary) {
     sections.push(`Summary:\n${summary}`);
@@ -88,6 +89,29 @@ function buildResumeKnowledgeText(
     const lines = [
       `Company: ${company}`.trim(),
       `Role: ${role}`.trim(),
+      duration ? `Duration: ${duration}` : "",
+      description ? `Details:\n${description}` : "",
+    ].filter(Boolean);
+
+    if (lines.length) {
+      sections.push(lines.join("\n"));
+    }
+  }
+
+  for (const item of projects) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+
+    const name = typeof item.role === "string" ? item.role : "";
+    const organization = typeof item.company === "string" ? item.company : "";
+    const duration = typeof item.duration === "string" ? item.duration : "";
+    const description =
+      typeof item.description === "string" ? item.description : "";
+
+    const lines = [
+      name ? `Project: ${name}` : "",
+      organization ? `Organization: ${organization}` : "",
       duration ? `Duration: ${duration}` : "",
       description ? `Details:\n${description}` : "",
     ].filter(Boolean);

@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/Popover";
 
 interface SimpleDatePickerProps {
-  value?: Date;
-  onChange?: (date: Date | undefined) => void;
+  value?: Date | string;
+  onChange?: (date: Date | string | undefined) => void;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -31,6 +31,10 @@ function toDate(v: Date | string | undefined): Date | undefined {
   return isNaN(d.getTime()) ? undefined : d;
 }
 
+function isYearOnlyValue(v: Date | string | undefined): v is string {
+  return typeof v === "string" && /^\d{4}$/.test(v.trim());
+}
+
 export default function SimpleDatePicker({
   value,
   onChange,
@@ -39,6 +43,7 @@ export default function SimpleDatePicker({
   className,
   allowFuture = true,
 }: SimpleDatePickerProps) {
+  const isYearOnly = isYearOnlyValue(value);
   const safeValue = toDate(value);
   const [isOpen, setIsOpen] = React.useState(false);
   const currentYear = new Date().getFullYear();
@@ -47,8 +52,22 @@ export default function SimpleDatePicker({
   const [viewYear, setViewYear] = React.useState(() =>
     safeValue ? safeValue.getFullYear() : currentYear,
   );
+  const [textInput, setTextInput] = React.useState(() =>
+    isYearOnly ? value : safeValue ? format(safeValue, "MMM yyyy") : "",
+  );
+  const [isTyping, setIsTyping] = React.useState(false);
   const [yearOpen, setYearOpen] = React.useState(false);
   const yearListRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const nextYear = safeValue ? safeValue.getFullYear() : currentYear;
+    setViewYear(nextYear);
+    if (!isTyping) {
+      setTextInput(
+        isYearOnly ? value : safeValue ? format(safeValue, "MMM yyyy") : "",
+      );
+    }
+  }, [safeValue, currentYear, isTyping, isYearOnly, value]);
 
   React.useEffect(() => {
     if (yearOpen && yearListRef.current) {
@@ -70,24 +89,87 @@ export default function SimpleDatePicker({
     setIsOpen(false);
   };
 
+  const commitTextInput = React.useCallback(() => {
+    const trimmed = textInput.trim();
+    if (!trimmed) {
+      setTextInput("");
+      setIsTyping(false);
+      onChange?.(undefined);
+      return;
+    }
+
+    const parsedYear = Number.parseInt(trimmed, 10);
+    if (Number.isNaN(parsedYear)) {
+      setTextInput(
+        isYearOnly ? value : safeValue ? format(safeValue, "MMM yyyy") : "",
+      );
+      setIsTyping(false);
+      return;
+    }
+
+    const clampedYear = Math.min(maxYear, Math.max(1950, parsedYear));
+    setViewYear(clampedYear);
+    setTextInput(String(clampedYear));
+    setIsTyping(false);
+    onChange?.(String(clampedYear));
+  }, [textInput, maxYear, onChange, isYearOnly, value, safeValue]);
+
   return (
     <div className={cn("relative", className)}>
       <Popover open={isOpen} onOpenChange={setIsOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            className={cn(
-              "w-full justify-start text-left font-normal h-9",
-              !safeValue && "text-muted-foreground",
-            )}
+        <div
+          className={cn(
+            "flex h-9 w-full items-center overflow-hidden rounded-md border border-input bg-transparent",
+            disabled && "cursor-not-allowed opacity-50",
+          )}
+        >
+          <input
+            type="text"
+            inputMode="numeric"
+            value={
+              isTyping
+                ? textInput
+                : isYearOnly
+                  ? String(value)
+                  : safeValue
+                    ? format(safeValue, "MMM yyyy")
+                    : textInput
+            }
+            onFocus={() => {
+              setIsTyping(true);
+              setTextInput(
+                isYearOnly ? String(value) : safeValue ? String(safeValue.getFullYear()) : "",
+              );
+            }}
+            onChange={(e) => {
+              const next = e.target.value.replace(/[^\d]/g, "").slice(0, 4);
+              setTextInput(next);
+            }}
+            onBlur={commitTextInput}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitTextInput();
+              }
+            }}
+            placeholder={placeholder}
             disabled={disabled}
-          >
-            <CalendarIcon className="mr-2 h-3.5 w-3.5 opacity-50" />
-            <span className="text-sm">
-              {safeValue ? format(safeValue, "MMM yyyy") : placeholder}
-            </span>
-          </Button>
-        </PopoverTrigger>
+            className={cn(
+              "h-full flex-1 bg-transparent px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground",
+              !safeValue && !isYearOnly && !textInput && "text-muted-foreground",
+            )}
+          />
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              disabled={disabled}
+              className="flex h-full w-10 items-center justify-center border-l border-input text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label="Open date picker"
+            >
+              <CalendarIcon className="h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+        </div>
         <PopoverContent className="w-64 p-3 !bg-white !text-gray-900 !border-gray-200" align="start" side="top" collisionPadding={16}>
           <div className="flex items-center justify-between mb-3">
             <button
@@ -116,7 +198,17 @@ export default function SimpleDatePicker({
                       key={year}
                       type="button"
                       data-active={year === viewYear}
-                      onClick={() => { setViewYear(year); setYearOpen(false); }}
+                      onClick={() => {
+                        setViewYear(year);
+                        setYearOpen(false);
+                        onChange?.(
+                          new Date(
+                            year,
+                            safeValue?.getMonth() ?? 0,
+                            1,
+                          ),
+                        );
+                      }}
                       className={cn(
                         "w-full px-2 py-1.5 text-xs text-center transition-colors",
                         year === viewYear

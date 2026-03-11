@@ -2,6 +2,7 @@ export interface ResumeContact {
   name?: string;
   firstName?: string;
   lastName?: string;
+  title?: string;
   email?: string;
   phone?: string;
   location?: string;
@@ -37,6 +38,7 @@ export interface ResumeData {
   skills?: string[];
   jobTitle?: string;
   experience?: ResumeExperience[];
+  projects?: ResumeExperience[];
   education?: ResumeEducation[];
   contact?: ResumeContact;
   ats_score?: string;
@@ -65,6 +67,7 @@ export const RESUME_PRINT_PAGE_BREAK_CSS = `
     .resume-page .resume-header,
     .resume-page .resume-section,
     .resume-page .resume-exp-item,
+    .resume-page .resume-project-item,
     .resume-page .resume-edu-item,
     .resume-page .resume-sidebar-section {
       page-break-inside: avoid;
@@ -126,6 +129,7 @@ export const RESUME_CSS = `
   }
 
   .resume-section { margin-bottom: 0.2in; }
+  .resume-left > .resume-section + .resume-section { padding-top: 0.08in; }
 
   .resume-section-title {
     font-size: 14px;
@@ -297,6 +301,16 @@ export function generateResumeHTMLString(data: ResumeData): string {
         </div>
         <div class="resume-exp-company">${exp.company}</div>
         ${exp.description ? `<div class="resume-exp-desc">${exp.description.split("\\n").map((line) => { const t = line.trim(); return t.startsWith("- ") ? `<div class="resume-bullet-item"><span class="resume-bullet">•</span><span>${t.substring(2)}</span></div>` : t ? `<div>${t}</div>` : ""; }).join("")}</div>` : ""}
+      </div>`).join("")}</div>` : ""}
+    ${data.projects?.length ? `<div class="resume-section"><div class="resume-section-title">Projects</div>${data.projects.map((project) => `
+      <div class="resume-project-item resume-exp-item">
+        <div class="resume-exp-header">
+          <div class="resume-exp-role">${project.company || project.role || "Project"}</div>
+          ${(project.startDate || project.endDate || project.isCurrentRole) ? `<div class="resume-exp-duration">${formatDate(project.startDate)}${project.startDate || project.endDate || project.isCurrentRole ? " — " : ""}${project.isCurrentRole ? "Present" : formatDate(project.endDate)}</div>` : ""}
+        </div>
+        ${project.role && project.company && project.role !== project.company ? `<div class="resume-exp-company">${project.role}</div>` : ""}
+        ${project.location ? `<div class="resume-exp-company">${project.location}</div>` : ""}
+        ${project.description ? `<div class="resume-exp-desc">${project.description.split("\\n").map((line) => { const t = line.trim(); return t.startsWith("- ") ? `<div class="resume-bullet-item"><span class="resume-bullet">•</span><span>${t.substring(2)}</span></div>` : t ? `<div>${t}</div>` : ""; }).join("")}</div>` : ""}
       </div>`).join("")}</div>` : ""}
     ${data.education?.length ? `<div class="resume-section"><div class="resume-section-title">Education</div>${data.education.map((edu) => `
       <div class="resume-edu-item">

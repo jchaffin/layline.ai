@@ -189,21 +189,24 @@ export default function DashboardPage() {
           isCollapsed={isNavCollapsed}
           onToggleCollapse={setIsNavCollapsed}
           hideCollapseToggle={isEditingDocument && sidebarVisibleInEditor}
+          hideSignOut={isEditingDocument}
         />
       )}
       <main
         className={`${sidebarVisible ? (isNavCollapsed ? "lg:ml-16" : "lg:ml-56") : ""} p-6 transition-[margin-left] duration-200`}
       >
-        <div className="mx-auto mb-4 flex max-w-6xl justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => signOut({ callbackUrl: "/signin" })}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            <span>Sign out</span>
-          </Button>
-        </div>
+        {!isEditingDocument && (
+          <div className="mx-auto mb-4 flex max-w-6xl justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => signOut({ callbackUrl: "/signin" })}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Sign out</span>
+            </Button>
+          </div>
+        )}
         {renderStep()}
       </main>
     </div>

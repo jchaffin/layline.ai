@@ -25,6 +25,7 @@ interface NavigationProps {
   isCollapsed?: boolean;
   onToggleCollapse?: (collapsed: boolean) => void;
   hideCollapseToggle?: boolean;
+  hideSignOut?: boolean;
 }
 
 const NAV_ITEMS: {
@@ -49,6 +50,7 @@ export function Navigation({
   isCollapsed = false,
   onToggleCollapse,
   hideCollapseToggle = false,
+  hideSignOut = false,
 }: NavigationProps) {
   const toggle = () => onToggleCollapse?.(!isCollapsed);
 
@@ -109,7 +111,7 @@ export function Navigation({
         </nav>
 
         <div className="border-t p-3 flex justify-center">
-          <LoginButton compact={isCollapsed} />
+          <LoginButton compact={isCollapsed} hideSignOut={hideSignOut} />
         </div>
       </aside>
 
@@ -136,7 +138,7 @@ export function Navigation({
           })}
         </nav>
         <div className="border-t p-2">
-          <LoginButton />
+          <LoginButton hideSignOut={hideSignOut} />
         </div>
       </div>
     </>

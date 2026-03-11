@@ -256,6 +256,7 @@ CRITICAL PARSING REQUIREMENTS:
 - For CURRENT ROLES: Set endDate to null/undefined, isCurrentRole to true
 - For PAST ROLES: Include proper endDate, isCurrentRole to false
 - DESCRIPTION MUST INCLUDE ALL BULLETS: For each job, capture EVERY bullet point, achievement, and responsibility line. Do NOT truncate or summarize. Each bullet should be on its own line prefixed with "- ". If a job has 8 bullets, all 8 must appear in the description field.
+- EXTRACT PROJECTS: If the resume includes a Projects section or project-style entries, capture them separately in a top-level "projects" array instead of folding them into work experience when possible.
 
 Return JSON with this exact structure:
 {
@@ -272,6 +273,19 @@ Return JSON with this exact structure:
       "description": "COMPLETE job description including ALL bullet points, achievements, and responsibilities. Include EVERY line item from the resume - do NOT summarize or truncate. Preserve each bullet as a separate line prefixed with '- '. This is critical: capture the FULL text, not just the first bullet.",
       "keywords": ["relevant technical/industry keywords"],
       "isCurrentRole": true for current roles, false for past roles
+    }
+  ],
+  "projects": [
+    {
+      "company": "Project organization/client if explicitly stated, otherwise empty string",
+      "role": "Project name or project title exactly as written",
+      "startDate": "MM/YYYY if available",
+      "endDate": "MM/YYYY if available, otherwise null",
+      "duration": "Full project duration string as written in resume",
+      "location": "Location if mentioned",
+      "description": "COMPLETE project description including ALL bullet points. Preserve each bullet as a separate line prefixed with '- '.",
+      "keywords": ["relevant technical/project keywords"],
+      "isCurrentRole": true if ongoing, false otherwise
     }
   ],
   "education": [
@@ -453,6 +467,11 @@ Return JSON with this exact structure:
         ...exp,
         startDate: parseDate(exp.startDate),
         endDate: parseDate(exp.endDate),
+      })) || [],
+      projects: parsedData.projects?.map((project: any) => ({
+        ...project,
+        startDate: parseDate(project.startDate),
+        endDate: parseDate(project.endDate),
       })) || [],
     };
 
